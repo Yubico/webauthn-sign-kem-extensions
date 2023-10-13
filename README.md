@@ -1,4 +1,15 @@
-# `arkg` WebAuthn extension
+# DRAFT: `arkg` WebAuthn extension
+
+_NOTE: This is a draft and **not implementation ready**._
+
+Authors: Emil Lundberg (Yubico)
+
+Closely related previous work:
+- Emil Lundberg and Dain Nilsson, "WebAuthn recovery extension". GitHub, 2019-2021. https://github.com/Yubico/webauthn-recovery-extension
+- Frymann et al., "Asynchronous Remote Key Generation: An Analysis of Yubico's Proposal for W3C WebAuthn". Proceedings of the 2020 ACM SIGSAC Conference on Computer and Communications Security, 2020. https://doi.org/10.1145/3372297.3417292
+
+
+## Introduction
 
 This extension enables Relying Parties to perform cryptographic operations using
 the [Asynchronous Remote Key Generation (ARKG)][arkg] protocol, with the authenticator holding all secret key material.
