@@ -58,10 +58,13 @@ extensions: {
 
 Authenticator processing steps:
 
- 1. Let `alg` be the authenticator's choice of one of the curves listed in `pubKeyCredParams`.
+ 1. Let `alg` be the authenticator's choice of one of the algorithms listed in `pubKeyCredParams`.
     `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
     Let `crv` be this curve.
     
+    ISSUE: Support non-EC algorithms too? ARKG can in principle work with any
+    discrete logarithm problem, and post-quantum extensions also exist.
+
  2. If `usage` is empty, return CTAP2_ERR_X.
 
  3. If `usage` includes `"sign"` and `crv` is not valid for signature operations, return CTAP2_ERR_X.
