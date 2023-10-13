@@ -87,7 +87,7 @@ Authenticator processing steps:
     seed to deterministically generate a new EC key pair `s, S` on the curve
     `crv`.
 
- 6. Let `S_enc` be `S` encoded COSE_Key format.
+ 6. Let `S_enc` be `S` encoded in COSE_Key format.
  
  7. Let `seedHandle` be an authenticator-specific encoding of `crv`, `salt`,
     `uv` and `usage` which the authenticator can later use to derive the same EC
