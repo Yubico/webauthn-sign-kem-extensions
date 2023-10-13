@@ -109,7 +109,7 @@ Authenticator processing steps:
 authData.extensions: {
     arkg: {
         seedPublicKey: ArrayBuffer,  // ARKG public key seed in COSE_Key format
-        seedHandle: ArrayBuffer,     // Private seed re-derivation parameters for the authenticator (will include salt and curve ID)
+        seedHandle: ArrayBuffer,     // Private seed re-derivation parameters
     },
 },
 ```
