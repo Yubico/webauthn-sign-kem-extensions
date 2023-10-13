@@ -412,7 +412,7 @@ authData.extensions: {
 16. Store `(credentialId, P, keyHandle, newUsage)` as a public key in the relevant user account.
 
 
-[arkg]: https://eprint.iacr.org/2020/1004
+[arkg]: https://doi.org/10.1145/3372297.3417292
 [att-cred-data]: https://w3c.github.io/webauthn/#attested-credential-data
 [authdata]: https://w3c.github.io/webauthn/#authenticator-data
 [ctap2-canon]: https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#ctap2-canonical-cbor-encoding-form
