@@ -68,6 +68,9 @@ Authenticator processing steps:
     ISSUE: There's probably some overlap and conflict between `alg` and `usage` here?
     For example, `alg: -7 (ES256)` and `usage: "ecdh"` doesn't make sense, since `ES256` is specifically a signing algorithm.
     Perhaps there should be a list of curves instead of `pubKeyCredParams`, and a list of `alg`s instead of `usage`?
+    The COSE_Key format allows only one `alg` ("Key usage restriction to this algorithm") value per key,
+    so should each seed public key only support deriving public keys of the same single `alg`?
+    Or should the seed public key contain only a `crv` field but not an `alg` field?
 
  2. If `usage` is empty, return CTAP2_ERR_X.
 
