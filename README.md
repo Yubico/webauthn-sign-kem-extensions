@@ -190,9 +190,8 @@ Authenticator processing steps:
     - `info`: The string `webauthn.arkg.sign.mac_key` encoded as a UTF-8 byte string.
     - `L`: 32.
 
- 9. Verify that `keyHandle.mac == HMAC-SHA-256(macKey, ecdhePublicKey ||
-    rpIdHash)`. If not, this `keyHandle` was generated for a different
-    authenticator. Return CTAP2_ERR_X.
+ 9. Verify that `keyHandle.mac == HMAC-SHA-256(macKey, seedHandle || ecdhePublicKey || rpIdHash)`.
+    If not, this `keyHandle` was generated for a different authenticator. Return CTAP2_ERR_X.
 
 10. Let `p = credKey + s` in the scalar field of `crv`.
 
@@ -375,7 +374,7 @@ authData.extensions: {
     
     ISSUE: Should `E_enc` use COSE_Key format instead of SEC1?
 
-14. Let `mac = HMAC-SHA-256(macKey, E_enc || rpIdHash)`.
+14. Let `mac = HMAC-SHA-256(macKey, seedHandle || E_enc || rpIdHash)`.
 
 15. Let `keyHandle` be an object with the structure:
 
