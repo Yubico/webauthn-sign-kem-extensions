@@ -42,8 +42,9 @@ Finally, the Relying Party can request two operations from the authenticator:
   for asymmetric encryption where the authenticator needs to be present only
   during decryption.
 
-The following terms are used throughout this document:
+The following notation is used throughout this document:
 
+- The symbol `||` represents byte array concatenation.
 - `LEFT(X, n)` is the first `n` bytes of the byte array `X`.
 - `DROP_LEFT(X, n)` is the byte array `X` without the first `n` bytes.
 - CTAP2_ERR_X represents some not yet specified error code.
