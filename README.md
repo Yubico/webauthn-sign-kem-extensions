@@ -313,7 +313,7 @@ authData.extensions: {
 
  1. Invoke `navigator.credentials.create()` or `navigator.credentials.get()`
     with the `arkg` extension with a `createSeed` argument as defined above.
-    Let `usage` be value of the `createSeed.usage` argument.
+    Let `usage` be the value of the `createSeed.usage` argument.
     
     Let `credentialId` be the credential ID of the returned credential. Let
     `seedPublicKey` and `seedHandle` be the respective outputs from the
