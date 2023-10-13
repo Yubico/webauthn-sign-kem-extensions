@@ -65,6 +65,10 @@ Authenticator processing steps:
     ISSUE: Support non-EC algorithms too? ARKG can in principle work with any
     discrete logarithm problem, and post-quantum extensions also exist.
 
+    ISSUE: There's probably some overlap and conflict between `alg` and `usage` here?
+    For example, `alg: -7 (ES256)` and `usage: "ecdh"` doesn't make sense, since `ES256` is specifically a signing algorithm.
+    Perhaps there should be a list of curves instead of `pubKeyCredParams`, and a list of `alg`s instead of `usage`?
+
  2. If `usage` is empty, return CTAP2_ERR_X.
 
  3. If `usage` includes `"sign"` and `crv` is not valid for signature operations, return CTAP2_ERR_X.
