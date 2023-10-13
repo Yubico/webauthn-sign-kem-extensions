@@ -1,6 +1,6 @@
 # DRAFT: `arkg` WebAuthn extension
 
-_NOTE: This is a draft and **not implementation ready**._
+_NOTE: This is a draft of a work in progress and **not implementation ready**. All parts of this draft are subject to change._
 
 Authors: Emil Lundberg (Yubico)
 
