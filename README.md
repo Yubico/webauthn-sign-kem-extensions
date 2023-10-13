@@ -325,8 +325,8 @@ authData.extensions: {
 
  1. Let `(credentialId, seedPublicKey, seedHandle, usage)` be one of the ARKG seeds stored in the relevant user account.
  
- 1. Let `newKeyUsage` be `"sign"` if the generated public key is to be used for signature generation,
-    otherwise let `newUsage` be `"ecdh"` if it is to be used for ECDH key agreement.
+ 1. Let `op` be `"sign"` if the generated public key is to be used for signature generation,
+    otherwise let `op` be `"ecdh"` if it is to be used for ECDH key agreement.
 
  1. If `usage` does not include `newKeyUsage`, return an error.
     
@@ -349,8 +349,8 @@ authData.extensions: {
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
-    - `info`: The string `webauthn.arkg.${newUsage}.cred_key`, with the value of
-      `newUsage` substituted for `${newUsage}`, encoded as a UTF-8 byte string.
+    - `info`: The string `webauthn.arkg.${op}.cred_key`, with the value of `op`
+      substituted for `${op}`, encoded as a UTF-8 byte string.
     - `L`: `crvL`.
 
     Parse `credKey` as a big-endian unsigned number in the scalar field of `crv`.
@@ -360,8 +360,8 @@ authData.extensions: {
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
-    - `info`: The string `webauthn.arkg.${newUsage}.mac_key`, with the value of
-      `newUsage` substituted for `${newUsage}`, encoded as a UTF-8 byte string.
+    - `info`: The string `webauthn.arkg.${op}.mac_key`, with the value of `op`
+      substituted for `${op}`, encoded as a UTF-8 byte string.
     - `L`: 32.
 
  1. Let `P = (credKey * G) + S`, where * and + are elliptic curve point
