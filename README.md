@@ -342,32 +342,32 @@ authData.extensions: {
     `seedPublicKey` and `seedHandle` be the respective outputs from the
     `arkg` extension.
     
- 2. Store `(credentialId, seedPublicKey, seedHandle, usage)` as an ARKG seed in the relevant user account.
+ 1. Store `(credentialId, seedPublicKey, seedHandle, usage)` as an ARKG seed in the relevant user account.
 
 
 ### Generate public key
 
  1. Let `(credentialId, seedPublicKey, seedHandle, usage)` be one of the ARKG seeds stored in the relevant user account.
  
- 2. Let `newKeyUsage` be `"sign"` if the generated public key is to be used for signature generation,
+ 1. Let `newKeyUsage` be `"sign"` if the generated public key is to be used for signature generation,
     otherwise let `newUsage` be `"ecdh"` if it is to be used for ECDH key agreement.
 
- 3. If `usage` does not include `newKeyUsage`, return an error.
+ 1. If `usage` does not include `newKeyUsage`, return an error.
     
- 4. Let `S = seedPublicKey`. Let `crv = seedPublicKey.crv`.
+ 1. Let `S = seedPublicKey`. Let `crv = seedPublicKey.crv`.
 
- 5. Generate an ephemeral EC key pair on the curve `crv`: `e, E`. If `E` is the
+ 1. Generate an ephemeral EC key pair on the curve `crv`: `e, E`. If `E` is the
     point at infinity, start over from 1.
 
- 6. Let `ikm = ECDH(e, S)`. Let `ikm_x` be the X coordinate of `ikm`, encoded as
+ 1. Let `ikm = ECDH(e, S)`. Let `ikm_x` be the X coordinate of `ikm`, encoded as
     a byte string of length 32 as described in [SEC 1][sec1], section 2.3.7.
     
- 7. Destroy the ephemeral private key `e`.
+ 1. Destroy the ephemeral private key `e`.
 
- 8. Let `info` be the string `webauthn.arkg.sign.cred_key` if the public key is to be used for signature generation,
+ 1. Let `info` be the string `webauthn.arkg.sign.cred_key` if the public key is to be used for signature generation,
     otherwise let `info` be the string `webauthn.arkg.ecdh.cred_key` if the public key is to be used for ECDH key agreement.
 
- 9. Let `credKey` be the 32 bytes of output keying material from
+ 1. Let `credKey` be the 32 bytes of output keying material from
     [HKDF-SHA-256][hkdf] with the arguments:
 
     - `salt`: Not set.
@@ -379,7 +379,7 @@ authData.extensions: {
     Parse `credKey` as a big-endian unsigned number in the scalar field of `crv`.
     If `credKey` is greater than the order of the curve `crv`, start over from 1.
 
-10. Let `macKey` be the 32 bytes of output keying material from [HKDF-SHA-256][hkdf] with the arguments:
+ 1. Let `macKey` be the 32 bytes of output keying material from [HKDF-SHA-256][hkdf] with the arguments:
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
@@ -387,19 +387,19 @@ authData.extensions: {
       `newUsage` substituted for `${newUsage}`, encoded as a UTF-8 byte string.
     - `L`: 32.
 
-11. Let `P = (credKey * G) + S`, where * and + are elliptic curve point
+ 1. Let `P = (credKey * G) + S`, where * and + are elliptic curve point
     multiplication and addition in the curve group of `crv` and `G` is the
     generator of `crv`.
 
-12. If `P` is the point at infinity, start over from 1.
+ 1. If `P` is the point at infinity, start over from 1.
 
-13. Let `E_enc` be `E` encoded as described in [SEC 1][sec1], section 2.3.3, without point compression.
+ 1. Let `E_enc` be `E` encoded as described in [SEC 1][sec1], section 2.3.3, without point compression.
     
     ISSUE: Should `E_enc` use COSE_Key format instead of SEC1?
 
-14. Let `mac = HMAC-SHA-256(macKey, seedHandle || E_enc || rpIdHash)`.
+ 1. Let `mac = HMAC-SHA-256(macKey, seedHandle || E_enc || rpIdHash)`.
 
-15. Let `keyHandle` be an object with the structure:
+ 1. Let `keyHandle` be an object with the structure:
 
     ````
     keyHandle = {
@@ -409,7 +409,7 @@ authData.extensions: {
     }
     ````
     
-16. Store `(credentialId, P, keyHandle, newUsage)` as a public key in the relevant user account.
+ 1. Store `(credentialId, P, keyHandle, newUsage)` as a public key in the relevant user account.
 
 
 [arkg]: https://doi.org/10.1145/3372297.3417292
