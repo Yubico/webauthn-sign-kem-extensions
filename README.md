@@ -133,6 +133,12 @@ extensions: {
 },
 ```
 
+ISSUE: There should be some way to specify multiple key handles, like
+[`evalByCredential` in the `prf`
+extension](https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-evalbycredential),
+so that the user may use any of several authenticators if they have more than
+one registered.
+
 Authenticator processing steps:
 
  1. Decode the authenticator-specific encoding of `seedHandle` to extract the
@@ -227,6 +233,12 @@ extensions: {
     },
 },
 ```
+
+ISSUE: There should be some way to specify multiple key handles, like
+[`evalByCredential` in the `prf`
+extension](https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-evalbycredential),
+so that the user may use any of several authenticators if they have more than
+one registered.
 
 Authenticator processing steps:
 
