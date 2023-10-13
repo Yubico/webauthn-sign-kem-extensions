@@ -317,8 +317,8 @@ authData.extensions: {
 
  1. Let `(credentialId, seedPublicKey, seedHandle, usage)` be one of the ARKG seeds stored in the relevant user account.
  
- 2. Let `newKeyUsage` be `"sign"` if the public key is to be used for signature generation,
-    otherwise let `newUsage` be `"ecdh"` if the public key is to be used for ECDH key agreement.
+ 2. Let `newKeyUsage` be `"sign"` if the generated public key is to be used for signature generation,
+    otherwise let `newUsage` be `"ecdh"` if it is to be used for ECDH key agreement.
 
  3. If `usage` does not include `newKeyUsage`, return an error.
     
