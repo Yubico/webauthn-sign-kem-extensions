@@ -329,7 +329,7 @@ authData.extensions: {
  1. Let `op` be `"sign"` if the generated public key is to be used for signature generation,
     otherwise let `op` be `"ecdh"` if it is to be used for ECDH key agreement.
 
- 1. If `usage` does not include `newKeyUsage`, return an error.
+ 1. If `usage` does not include `op`, return an error.
     
  1. Let `S = seedPublicKey`. Let `crv = seedPublicKey.crv`.
     Let `crvL` be the byte length of the scalar field of `crv`.
@@ -387,7 +387,7 @@ authData.extensions: {
     }
     ````
     
- 1. Store `(credentialId, P, keyHandle, newUsage)` as a public key in the relevant user account.
+ 1. Store `(credentialId, P, keyHandle, op)` as a public key in the relevant user account.
 
 
 [arkg]: https://doi.org/10.1145/3372297.3417292
