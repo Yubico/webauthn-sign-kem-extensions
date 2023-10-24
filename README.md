@@ -342,9 +342,6 @@ authData.extensions: {
 
  1. Destroy the ephemeral private key `e`.
 
- 1. Let `info` be the string `webauthn.arkg.sign.cred_key` if the public key is to be used for signature generation,
-    otherwise let `info` be the string `webauthn.arkg.ecdh.cred_key` if the public key is to be used for ECDH key agreement.
-
  1. Let `credKey` be the `crvL` bytes of output keying material from
     [HKDF-SHA-256][hkdf] with the arguments:
 
