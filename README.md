@@ -163,7 +163,9 @@ Authenticator processing steps:
      1. Return `(alg, salt, uv, usage`).
 
     `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
-    Let `crv` be this curve. Let `crvL` be the byte length of the scalar field of `crv`.
+    Let `crv` be this curve.
+    Let `crvOL` be the byte length of the order of the `crv` group.
+    Let `crvSL` be the byte length of the scalar field of `crv`.
 
  1. If `usage` does not include `op`, return CTAP2_ERR_X.
 
@@ -179,16 +181,16 @@ Authenticator processing steps:
  1. If `E` is the point at infinity, return CTAP2_ERR_X.
 
  1. Let `ikm = ECDH(s, E)`. Let `ikm_x` be the X coordinate of `ikm`, encoded as
-    a byte string of length `crvL` as described in [SEC 1][sec1], section 2.3.7.
+    a byte string of length `crvSL` as described in [SEC 1][sec1], section 2.3.7.
 
- 1. Let `credKey` be the `crvL` bytes of output keying material from [HKDF-SHA-256][hkdf]
+ 1. Let `credKey` be the `crvOL` bytes of output keying material from [HKDF-SHA-256][hkdf]
     with the arguments:
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
     - `info`: The string `webauthn.arkg.${op}.cred_key`, with the value of `op`
       substituted for `${op}`, encoded as a UTF-8 byte string.
-    - `L`: `crvL`.
+    - `L`: `crvOL`.
 
     Parse `credKey` as a big-endian unsigned number in the scalar field of `crv`.
     If `credKey` is greater than the order of the curve `crv`, return CTAP2_ERR_X.
@@ -332,24 +334,25 @@ authData.extensions: {
  1. If `usage` does not include `op`, return an error.
 
  1. Let `S = seedPublicKey`. Let `crv = seedPublicKey.crv`.
-    Let `crvL` be the byte length of the scalar field of `crv`.
+    Let `crvOL` be the byte length of the order of the `crv` group.
+    Let `crvSL` be the byte length of the scalar field of `crv`.
 
  1. Generate an ephemeral EC key pair on the curve `crv`: `e, E`. If `E` is the
     point at infinity, start over from 1.
 
  1. Let `ikm = ECDH(e, S)`. Let `ikm_x` be the X coordinate of `ikm`, encoded as
-    a byte string of length `crvL` as described in [SEC 1][sec1], section 2.3.7.
+    a byte string of length `crvSL` as described in [SEC 1][sec1], section 2.3.7.
 
  1. Destroy the ephemeral private key `e`.
 
- 1. Let `credKey` be the `crvL` bytes of output keying material from
+ 1. Let `credKey` be the `crvOL` bytes of output keying material from
     [HKDF-SHA-256][hkdf] with the arguments:
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
     - `info`: The string `webauthn.arkg.${op}.cred_key`, with the value of `op`
       substituted for `${op}`, encoded as a UTF-8 byte string.
-    - `L`: `crvL`.
+    - `L`: `crvOL`.
 
     Parse `credKey` as a big-endian unsigned number in the scalar field of `crv`.
     If `credKey` is greater than the order of the curve `crv`, start over from 1.
