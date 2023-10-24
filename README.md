@@ -365,9 +365,9 @@ authData.extensions: {
       substituted for `${op}`, encoded as a UTF-8 byte string.
     - `L`: 32.
 
- 1. Let `P = (credKey * G) + S`, where * and + are elliptic curve point
-    multiplication and addition in the curve group of `crv` and `G` is the
-    generator of `crv`.
+ 1. Let `P = (credKey * G) + S`, where * and + are elliptic curve scalar
+    multiplication and point addition in the `crv` group and `G` is the group
+    generator.
 
  1. If `P` is the point at infinity, start over from 1.
 
