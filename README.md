@@ -1,4 +1,4 @@
-# DRAFT: `arkg` WebAuthn extension
+# DRAFT: `sign` and `keyAgreement` WebAuthn extensions
 
 _NOTE: This is a draft of a work in progress and **not implementation ready**. All parts of this draft are subject to change._
 
@@ -11,10 +11,16 @@ Closely related previous work:
 
 ## Introduction
 
-This extension enables Relying Parties to perform cryptographic operations using
-the [Asynchronous Remote Key Generation (ARKG)][arkg] protocol, with the authenticator holding all secret key material.
+These extensions enable Relying Parties to sign arbitrary data and perform key
+agreement using public key protocols, such as Diffie-Hellman.
+Both extensions also support the [Asynchronous Remote Key Generation
+(ARKG)][arkg] protocol, enabling public key generation to be delegated to a
+party without giving that party access to any corresponding private keys.
 
-The protocol begins with the authenticator emitting a _seed public key_.
+
+### The ARKG protocol
+
+The ARKG protocol begins with the authenticator emitting a _seed public key_.
 The Relying Party can use the seed public key to generate any number of _derived public keys_,
 but the Relying Party does not gain access to the corresponding private keys.
 Derived public keys on their own are unlinkable; given two derived public keys
@@ -42,6 +48,9 @@ Finally, the Relying Party can request two operations from the authenticator:
   for asymmetric encryption where the authenticator needs to be present only
   during decryption.
 
+
+### Notation
+
 The following notation is used throughout this document:
 
 - The symbol `||` represents byte array concatenation.
@@ -50,127 +59,252 @@ The following notation is used throughout this document:
 - CTAP2_ERR_X represents some not yet specified error code.
 
 
-## Authenticator operations
+## WebAuthn `sign` extension
 
-### Generate ARKG seed
-
-`createSeed` input:
-```js
-extensions: {
-    arkg: {
-        createSeed: {
-            pubKeyCredParams: sequence<PublicKeyCredentialParameters>,
-            salt: BufferSource,
-            uv: bool,
-            usage: sequence<"sign" | "ecdh">,
-        },
-    },
-},
-```
-
-Authenticator processing steps:
-
- 1. Let `alg` be the authenticator's choice of one of the algorithms listed in `pubKeyCredParams`.
-    `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
-    Let `crv` be this curve.
-
-    ISSUE: Support non-EC algorithms too? ARKG can in principle work with any
-    discrete logarithm problem, and post-quantum extensions also exist.
-
-    ISSUE: There's probably some overlap and conflict between `alg` and `usage` here?
-    For example, `alg: -7 (ES256)` and `usage: "ecdh"` doesn't make sense, since `ES256` is specifically a signing algorithm.
-    Perhaps there should be a list of curves instead of `pubKeyCredParams`, and a list of `alg`s instead of `usage`?
-    The COSE_Key format allows only one `alg` ("Key usage restriction to this algorithm") value per key,
-    so should each seed public key only support deriving public keys of the same single `alg`?
-    Or should the seed public key contain only a `crv` field but not an `alg` field?
-
- 1. If `usage` is empty, return CTAP2_ERR_X.
-
- 1. If `usage` includes `"sign"` and `crv` is not valid for signature operations, return CTAP2_ERR_X.
-
-    Note: For example, COSE elliptic curve `4` (X25519) is valid for use with ECDH only.
-
- 1. If `usage` includes `"ecdh"` and `crv` is not valid for Elliptic Curve
-    Diffie-Hellman (ECDH) operations, return CTAP2_ERR_X.
-
-    Note: For example, COSE elliptic curve `6` (Ed25519) is valid for use with EdDSA only.
-
- 1. Use `salt`, `uv`, `usage` and a per-credential authenticator secret as the
-    seed to deterministically generate a new EC key pair `s, S` on the curve
-    `crv`.
-
- 1. Let `S_enc` be `S` encoded in COSE_Key format.
-
- 1. Let `seedHandle` be an authenticator-specific encoding of `crv`, `salt`,
-    `uv` and `usage` which the authenticator can later use to derive the same EC
-    key pair `s, S`. The encoding SHOULD include integrity protection to ensure
-    that a given `seedHandle` is valid for a particular authenticator.
-
-    One possible implementation is as follows:
-
-     1. Let `seedMacKey` be a per-credential authenticator secret.
-
-     1. Let `seedHandleParams = [alg, salt, uv, usage]` as CBOR.
-
-     1. Let `seedHandle = HMAC-SHA-256(seedMacKey, seedHandleParams || rpIdHash) || seedHandleParams`.
-
- 1. Return `seedPublicKey: S` and `seedHandle: seedHandle`.
-
-`createSeed` output:
-```js
-authData.extensions: {
-    arkg: {
-        seedPublicKey: ArrayBuffer,  // ARKG public key seed in COSE_Key format
-        seedHandle: ArrayBuffer,     // Private seed re-derivation parameters
-    },
-},
-```
+This extension enables a Relying Party to sign arbitrary data. The signing
+public key is not the same as the credential public key.
 
 
-### Internal operation: derive private key
+### Client extension input
 
-This operation is internal to the authenticator, and takes two parameters
-`keyHandle` and `op` with the following structure:
+```webidl
+partial dictionary AuthenticationExtensionsClientInputs {
+    SignExtensionInputs sign;
+};
 
-```
-keyHandle: {
-    seedHandle:     BufferSource,  // seedHandle from createSeed output
-    ecdhePublicKey: BufferSource,  // `E` field of `cred` parameter of DeriveSK in ARKG
-    mac:            BufferSource,  // `µ` field of `cred` parameter of DeriveSK in ARKG
+dictionary SignExtensionInputs {
+    SignExtensionGenerateKeyInputs generateKey;
+    SignExtensionSignInputs sign;
+
+    SignExtensionGenerateKeyInputs arkgGenerateSeed;
+    SignExtensionArkgSignInputs arkgSign;
+};
+
+dictionary SignExtensionGenerateKeyInputs {
+    required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
+
+    SignExtensionKeyUsageRequirement userVerification = "discouraged";
+    SignExtensionKeyUsageRequirement backupEligible   = "indifferent";
 }
-op: "sign" | "ecdh"
+
+enum SignExtensionOptionRequirement {
+    "forbidden",    // CBOR 0
+    "discouraged",  // CBOR 1
+    "indifferent",  // CBOR 2
+    "preferred",    // CBOR 3
+    "required",     // CBOR 4
+}
+
+dictionary SignExtensionSignInputs {
+    required BufferSource tbs;                                       // Data to be signed
+    required record<USVString, BufferSource> keyHandleByCredential;  // Keys from which to choose one to sign with
+}
+
+dictionary SignExtensionArkgSignInputs {
+    required BufferSource tbs;                                                     // Data to be signed
+    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;  // Keys from which to choose one to sign with
+}
+
+dictionary SignExtensionArkgKeyHandle {
+    required BufferSource seedHandle;      // seedHandle from createSeed output
+    required BufferSource ecdhePublicKey;  // `E` field of `cred` parameter of DeriveSK in ARKG
+    required BufferSource mac;             // `µ` field of `cred` parameter of DeriveSK in ARKG
+}
 ```
+
+### Client extension processing
+
+TODO: Translate the extension input to CBOR. Translate the authenticator extension output from CBOR.
+
+TODO: If `generateKey` or `arkgGenerateSeed` is present, use the
+`userVerification` and `backupEligible` values to help the user select a
+suitable authenticator. Set the `genKey.up` or `arkgGen.up` authenticator
+extension input to 4 (required).
+
+
+### Client extension output
+
+```webidl
+partial dictionary AuthenticationExtensionsClientOutputs {
+    SignExtensionOutputs sign;
+};
+
+dictionary SignExtensionOutputs {
+    ArrayBuffer publicKey;
+    ArrayBuffer keyHandle;
+
+    ArrayBuffer seedPublicKey;
+    ArrayBuffer seedHandle;
+
+    ArrayBuffer signature;
+};
+```
+
+
+### Authenticator extension input
+
+```cddl
+$$extensionInput //= (
+  sign: signExtensionInputs,
+)
+
+signExtensionInputs = {
+    genKey: signExtensionGenerateKeyInputs,
+    ? sign: signExtensionSignInputs,
+    //
+    arkgGen: signExtensionGenerateKeyInputs,
+    ? arkgSign: signExtensionArkgSignInputs,
+};
+
+signExtensionSignInputs = {
+    tbs: bstr,
+    kh: { + bstr => bstr },  // Keys from which to choose one to sign with
+}
+
+signExtensionOptionRequirement = 0..4
+
+signExtensionGenerateKeyInputs = {
+    alg: [+ COSEAlgorithmIdentifier],
+    ? up: signExtensionOptionRequirement .default 4,  // Default: "required"
+    ? uv: signExtensionOptionRequirement .default 1,  // Default: "discouraged"
+    ? be: signExtensionOptionRequirement .default 2,  // Default: "indifferent"
+}
+
+signExtensionArkgKeyHandle = {
+    sh: bstr;   // seedHandle from createSeed output
+    epk: bstr;  // `E` field of `cred` parameter of DeriveSK in ARKG
+    mac: bstr;  // `µ` field of `cred` parameter of DeriveSK in ARKG
+}
+
+signExtensionArkgSignInputs = {
+    tbs: bstr;                                     // Data to be signed
+    kh: { + bstr => signExtensionArkgKeyHandle },  // Keys from which to choose one to sign with
+}
+```
+
+
+### Authenticator processing steps
+
+ 1. If `genKey` is present:
+    1. If `arkgGen` or `arkgSign` is present, return CTAP2_ERR_X.
+    1. TODO
+
+ 1. If `sign` is present:
+    1. TODO
+
+ 1. If `arkgGen` is present:
+    1. If `arkgSign` is present, return CTAP2_ERR_X.
+
+    1. Let `alg` be the authenticator's choice of one of the algorithms listed in `arkgGen.alg`.
+        `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
+        Let `crv` be this curve.
+        If none is supported, return CTAP2_ERR_X.
+
+        ISSUE: Support non-EC algorithms too? ARKG can in principle work with any
+        discrete logarithm problem, and post-quantum extensions also exist.
+
+    1. If `crv` is not valid for signature operations, return CTAP2_ERR_X.
+
+        Note: For example, COSE elliptic curve `4` (X25519) is valid for use with ECDH only.
+
+    1. Return CTAP2_ERR_X if any of the following is true:
+        - `arkgGen.up` is 0 and this authenticator always requires user presence.
+        - `arkgGen.up` is 5 and this authenticator is not capable of a test of user presence.
+        - `arkgGen.uv` is 0 and this authenticator always requires user verification.
+        - `arkgGen.uv` is 5 and this authenticator is not capable of user verification.
+        - `arkgGen.be` is 0 and this authenticator can only create backup eligible credentials.
+        - `arkgGen.be` is 5 and this authenticator is not capable of creating backup eligible credentials.
+
+    1. Let `up` be a Boolean value as follows.
+
+        - If `arkgGen.up` is 0, let `up` be `false`.
+        - If `arkgGen.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
+        - If `arkgGen.up` is 2, let `up` be `false` or `true` as chosen by the authenticator.
+        - If `arkgGen.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
+        - If `arkgGen.up` is 4, let `up` be `true`.
+
+        Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
+
+    1. Let `salt` be some amount of cryptographically random entropy chosen by
+       the authenticator.
+
+    1. Use `salt`, `up`, `uv`, `be` and a per-credential authenticator secret as the
+        seeds to deterministically generate a new EC key pair `s, S` on the
+        curve `crv`.
+
+    1. Let `S_enc` be `S` encoded in COSE_Key format.
+
+    1. Let `seedHandle` be an authenticator-specific encoding of `crv`, `salt`,
+         `up`, `uv` and `be`, which the authenticator can later use to derive
+         the same EC key pair `s, S`. The encoding SHOULD include integrity
+         protection to ensure that a given `seedHandle` is valid for a
+         particular authenticator.
+
+        One possible implementation is as follows:
+
+        1. Let `seedMacKey` be a per-credential authenticator secret.
+
+        1. Let `seedHandleParams = [alg, salt, up, uv, be]` as CBOR.
+
+        1. Let `seedHandle = HMAC-SHA-256(seedMacKey, seedHandleParams || UTF8Encode("sign") || rpIdHash) || seedHandleParams`.
+
+    1. Return `{ spk: S_enc, sh: seedHandle }` as the `sign` extension output.
+
+        TODO: Generate attestation containing `up`, `uv` and `be`
+
+ 1. If `arkgSign` is present:
+    1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
+
+    1. Let `credentialId` be the credential ID of the credential being used for this assertion.
+       Let `keyHandle` be `arkgSign.kh[credentialId]`.
+       If `keyHandle` is null or undefined, return CTAP2_ERR_X.
+
+    1. Perform the internal operation _derive ARKG private key_ with `keyHandle` as the argument.
+
+        Let `p` be the returned private key. If the operation returned an error,
+        instead return that error and terminate these processing steps.
+
+    1. Let `sig` be a signature over `tbs` using private key `p` and algorithm
+        `alg`. `sig` is DER encoded as described in [RFC 3279][rfc3279].
+
+        ISSUE: Not always DER encoding for every `alg`?
+
+    1. Return `{ sig: sig }` as the `sign` extension output.
+
+
+#### Internal operation: derive ARKG private key
+
+This operation is internal to the authenticator, and takes one parameter
+`keyHandle` of type `SignExtensionArkgKeyHandle`.
 
 The operation returns a private key `p` or an error.
 
-Authenticator processing steps:
-
  1. Decode the authenticator-specific encoding of `seedHandle` to extract the
-    `alg`, `salt`, `uv` and `usage` values. This procedure SHOULD verify
+    `alg`, `salt`, `up`, `uv` and `be` values. This procedure SHOULD verify
     integrity to ensure that `seedHandle` was generated by this authenticator.
 
-    One possible implementation, compatible with the example encoding described in the _generate ARKG seed_ operation, is as follows:
+    One possible implementation, compatible with the example encoding described in the `arkgGenerateSeed` operation, is as follows:
 
      1. Let `seedMacKey` be a per-credential authenticator secret.
 
      1. Let `mac = LEFT(32, seedHandle)` and `seedHandleParams = DROP_LEFT(32, seedHandle)`.
 
-     1. Verify that `mac == HMAC-SHA-256(seedMacKey, seedHandleParams || rpIdHash)`. If
-        not, this `seedHandle` was generated by a different authenticator. Return CTAP2_ERR_X.
+     1. Verify that `mac == HMAC-SHA-256(seedMacKey, seedHandleParams ||
+        UTF8Encode("sign") || rpIdHash)`. If not, this `seedHandle` was
+        generated by a different authenticator. Return CTAP2_ERR_X.
 
-     1. Parse `[alg, salt, uv, usage] = seedHandleParams` as CBOR.
+     1. Parse `[alg, salt, up, uv, be] = seedHandleParams` as CBOR.
 
-     1. Return `(alg, salt, uv, usage`).
+     1. Return `(alg, salt, up, uv, be)`.
 
     `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
     Let `crv` be this curve.
     Let `crvOL` be the byte length of the order of the `crv` group.
     Let `crvSL` be the byte length of the scalar field of `crv`.
 
- 1. If `usage` does not include `op`, return CTAP2_ERR_X.
-
- 1. Use `salt`, `uv` and a per-credential authenticator secret as the seed to
-    deterministically regenerate the EC key pair `s, S` on the curve `crv`.
+ 1. Use `salt`, `up`, `uv`, `be` and a per-credential authenticator secret as
+    the seeds to deterministically regenerate the EC key pair `s, S` on the curve
+    `crv`.
 
  1. Let `E` be the public key on the curve `crv` decoded from the uncompressed
     point `keyHandle.ecdhePublicKey` as described in [SEC 1][sec1], section
@@ -188,8 +322,7 @@ Authenticator processing steps:
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
-    - `info`: The string `webauthn.arkg.${op}.cred_key`, with the value of `op`
-      substituted for `${op}`, encoded as a UTF-8 byte string.
+    - `info`: The string `webauthn.sign.arkg.cred_key`, encoded as a UTF-8 byte string.
     - `L`: `crvOL`.
 
     Parse `credKey` as a big-endian unsigned number in the scalar field of `crv`.
@@ -200,8 +333,7 @@ Authenticator processing steps:
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
-    - `info`: The string `webauthn.arkg.${op}.mac_key`, with the value of `op`
-      substituted for `${op}`, encoded as a UTF-8 byte string.
+    - `info`: The string `webauthn.sign.arkg.mac_key`, encoded as a UTF-8 byte string.
     - `L`: 32.
 
  1. Verify that `keyHandle.mac == HMAC-SHA-256(macKey, seedHandle || ecdhePublicKey || rpIdHash)`.
@@ -212,126 +344,49 @@ Authenticator processing steps:
  1. Return `p`.
 
 
-### Sign arbitrary data
+### Authenticator extension output
 
-`sign` input:
-```js
-extensions: {
-    arkg: {
-        sign: {
-            tbs: BufferSource,
-            keyHandle: {
-                seedHandle:     BufferSource,  // seedHandle from createSeed output
-                ecdhePublicKey: BufferSource,  // `E` field of `cred` parameter of DeriveSK in ARKG
-                mac:            BufferSource,  // `µ` field of `cred` parameter of DeriveSK in ARKG
-            },
-        },
-    },
+```cddl
+$$extensionOutput //= (
+    sign: signExtensionOutputs,
+)
+
+signExtensionOutputs = {
+    pk: bstr,
+    kh: bstr,
+    ? sig: bstr,
+
+    //
+
+    spk: bstr,
+    sh: bstr,
+
+    //
+
+    sig: bstr,
 },
 ```
 
-ISSUE: There should be some way to specify multiple key handles, like
-[`evalByCredential` in the `prf`
-extension](https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-evalbycredential),
-so that the user may use any of several authenticators if they have more than
-one registered.
-
-Authenticator processing steps:
-
- 1. Perform the internal operation _derive private key_ with arguments:
-
-    - `keyHandle`: `keyHandle`
-    - `op`: `"sign"`.
-
-    Let `p` be the returned private key. If the operation returned an error,
-    instead return that error and terminate these processing steps.
-
- 1. Set the extension output `sig` to a signature over `tbs` using private key
-    `p` and algorithm `alg`. `sig` is DER encoded as described in [RFC 3279][rfc3279].
-
-    ISSUE: Not always DER encoding for every `alg`?
-
-`sign` output:
-```js
-authData.extensions: {
-    arkg: {
-        sig: BufferSource,
-    },
-},
-```
+TODO: attestation
 
 
-### Perform Diffie-Hellman exchange
+### RP operations
 
-`ecdh` input:
-```js
-extensions: {
-    arkg: {
-        ecdh: {
-            publicKey: BufferSource,           // ECDH public key for key exchange
-            keyHandle: {
-                seedHandle:     BufferSource,  // seedHandle from createSeed output
-                ecdhePublicKey: BufferSource,  // `E` field of `cred` parameter of DeriveSK in ARKG
-                mac:            BufferSource,  // `µ` field of `cred` parameter of DeriveSK in ARKG
-            },
-        },
-    },
-},
-```
-
-ISSUE: There should be some way to specify multiple key handles, like
-[`evalByCredential` in the `prf`
-extension](https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-evalbycredential),
-so that the user may use any of several authenticators if they have more than
-one registered.
-
-Authenticator processing steps:
-
- 1. Perform the internal operation _derive private key_ with arguments:
-
-    - `keyHandle`: `keyHandle`
-    - `op`: `"ecdh"`.
-
-    Let `p` be the returned private key. If the operation returned an error,
-    instead return that error and terminate these processing steps.
-
- 1. Set the extension output `o` to the result of an ECDH exhange between `p` and `publicKey`.
-
-    ISSUE: What is a suitable reference for a spec of an ECDH algorithm?
-
-`ecdh` output:
-```js
-authData.extensions: {
-    arkg: {
-        okm: BufferSource,
-    },
-},
-```
-
-
-## RP operations
-
-### Generate ARKG seed
+#### Generate ARKG seed
 
  1. Invoke `navigator.credentials.create()` or `navigator.credentials.get()`
-    with the `arkg` extension with a `createSeed` argument as defined above.
-    Let `usage` be the value of the `createSeed.usage` argument.
+    with the `sign` extension with a `arkgGenerateSeed` argument as defined above.
 
     Let `credentialId` be the credential ID of the returned credential. Let
-    `seedPublicKey` and `seedHandle` be the respective outputs from the
-    `arkg` extension.
+    `seedPublicKey` and `seedHandle` be the respective outputs from the `sign`
+    extension.
 
- 1. Store `(credentialId, seedPublicKey, seedHandle, usage)` as an ARKG seed in the relevant user account.
+ 1. Store `(credentialId, seedPublicKey, seedHandle)` as an ARKG seed for signing in the relevant user account.
 
 
-### Generate public key
+#### Generate public key
 
- 1. Let `(credentialId, seedPublicKey, seedHandle, usage)` be one of the ARKG seeds stored in the relevant user account.
-
- 1. Let `op` be `"sign"` if the generated public key is to be used for signature generation,
-    otherwise let `op` be `"ecdh"` if it is to be used for ECDH key agreement.
-
- 1. If `usage` does not include `op`, return an error.
+ 1. Let `(credentialId, seedPublicKey, seedHandle)` be one of the ARKG seeds stored in the relevant user account.
 
  1. Let `S = seedPublicKey`. Let `crv = seedPublicKey.crv`.
     Let `crvOL` be the byte length of the order of the `crv` group.
@@ -350,8 +405,7 @@ authData.extensions: {
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
-    - `info`: The string `webauthn.arkg.${op}.cred_key`, with the value of `op`
-      substituted for `${op}`, encoded as a UTF-8 byte string.
+    - `info`: The string `webauthn.sign.arkg.cred_key`, encoded as a UTF-8 byte string.
     - `L`: `crvOL`.
 
     Parse `credKey` as a big-endian unsigned number in the scalar field of `crv`.
@@ -361,8 +415,7 @@ authData.extensions: {
 
     - `salt`: Not set.
     - `IKM`: `ikm_x`.
-    - `info`: The string `webauthn.arkg.${op}.mac_key`, with the value of `op`
-      substituted for `${op}`, encoded as a UTF-8 byte string.
+    - `info`: The string `webauthn.sign.arkg.mac_key`, encoded as a UTF-8 byte string.
     - `L`: 32.
 
  1. Let `P = (credKey * G) + S`, where * and + are elliptic curve scalar
@@ -387,7 +440,88 @@ authData.extensions: {
     }
     ````
 
- 1. Store `(credentialId, P, keyHandle, op)` as a public key in the relevant user account.
+ 1. Store `(credentialId, P, keyHandle)` as a public key for signing in the relevant user account.
+
+
+## WebAuthn `keyAgreement` extension
+
+TODO: Spell out the whole extension once details are settled.
+
+Analogous to the `sign` extension, but outputting the result of a Diffie-Hellman
+exchange instead of a signature. Inputs change like this:
+
+
+```webidl
+dictionary KeyAgreementExtensionInputs {
+    SignExtensionGenerateKeyInputs generateKey;
+    KeyAgreementExtensionDhInputs dh;
+
+    SignExtensionGenerateKeyInputs arkgGenerateSeed;
+    SKeyAgreementExtensioArkgEcdhInputs arkgEcdh;
+};
+
+dictionary KeyAgreementExtensionDhInputs {
+    required BufferSource publicKey;  // Public key for Diffie-Hellman key agreement
+    required BufferSource keyHandle;  // Private key handle for Diffie-Hellman key agreement
+}
+
+dictionary KeyAgreementExtensionArkgEcdhInputs {
+    required BufferSource publicKey;                                               // Public key for ECDH key agreement
+    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;  // Private key handles for ECDH key agreement
+}
+```
+
+and outputs like this:
+
+```webidl
+partial dictionary AuthenticationExtensionsClientOutputs {
+    KeyAgreementExtensionOutputs keyAgreement;
+};
+
+dictionary KeyAgreementExtensionOutputs {
+    ArrayBuffer publicKey;
+    ArrayBuffer keyHandle;
+
+    ArrayBuffer seedPublicKey;
+    ArrayBuffer seedHandle;
+
+    ArrayBuffer okm;
+};
+```
+
+```cddl
+$$extensionOutput //= (
+    keyAgreement: keyAgreementExtensionOutputs,
+)
+
+keyAgreementExtensionOutputs = {
+    pk: bstr,
+    kh: bstr,
+    ? okm: bstr,
+
+    //
+
+    spk: bstr,
+    sh: bstr,
+
+    //
+
+    okm: bstr,
+},
+```
+
+and the last step of the `dh` and `arkgEcdh` authenticator operations is:
+
+ 1. Set the extension output `okm` to the result of an ECDH exhange between `p` and `[dh | arkgEcdh].publicKey`.
+
+    ISSUE: What is a suitable reference for a spec of an ECDH algorithm?
+
+and the HKDF `info` arguments used in _derive ARKG private key_ are
+`webauthn.keyAgreement.arkg.cred_key` and `webauthn.keyAgreement.arkg.cred_key`.
+
+
+RP operations are also the same, except the ARKG seed and generated public keys
+are key agreement keys instead of signing keys.
 
 
 [arkg]: https://doi.org/10.1145/3372297.3417292
