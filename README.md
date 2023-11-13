@@ -231,7 +231,8 @@ public key" section of "RP operations".
 
 ### Client extension processing
 
-TODO: Translate the extension input to CBOR. Translate the authenticator extension output from CBOR.
+TODO: Translate the extension input to CBOR. Return the Boolean value `true` as
+the client extension output.
 
 TODO: If `generateKey` or `arkgGenerateSeed` is present, use the
 `userVerification` and `backupEligible` values to help the user select a
@@ -241,37 +242,13 @@ extension input to 4 (required).
 
 ### Client extension output
 
+The Boolean value `true` to indicate that the extension was acted upon.
+
 ```webidl
 partial dictionary AuthenticationExtensionsClientOutputs {
-    SignExtensionOutputs sign;
-};
-
-dictionary SignExtensionOutputs {
-    ArrayBuffer publicKey;
-    ArrayBuffer keyHandle;
-
-    ArrayBuffer seedPublicKey;
-    ArrayBuffer seedHandle;
-
-    ArrayBuffer signature;
+    boolean sign;
 };
 ```
-
-- `publicKey`: The generated public key. Present only if the `genKey` input was
-  set.
-
-- `keyHandle`: The key handle of the generated public key. Present only if the
-  `genKey` input was set.
-
-- `seedPublicKey`: The generated ARKG seed public key. Present only if the
-  `arkgGenerateSeed` input was set.
-
-- `seedHandle`: The seed handle of the generated ARKG seed public key. Present
-  only if the `arkgGenerateSeed` input was set.
-
-- `signature`: The generated signature. Present only if the `sign` or `arkgSign`
-  input was set.
-
 
 ### Authenticator extension input
 
@@ -609,6 +586,19 @@ signExtensionOutputs = {
     sig: bstr,
 },
 ```
+
+- `pk`: The generated public key. Present only if the `genKey` input was set.
+
+- `kh`: The key handle of the generated public key. Present only if the `genKey`
+  input was set.
+
+- `spk`: The generated ARKG seed public key. Present only if the `arkgGen` input
+  was set.
+
+- `sh`: The seed handle of the generated ARKG seed public key. Present only if
+  the `arkgGen` input was set.
+
+- `sig`: The signature. Present only if the `sign` or `arkgSign` input was set.
 
 TODO: attestation
 
