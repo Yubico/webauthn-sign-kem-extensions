@@ -79,14 +79,58 @@ dictionary SignExtensionInputs {
     SignExtensionGenerateKeyInputs arkgGenerateSeed;
     SignExtensionArkgSignInputs arkgSign;
 };
+```
 
+- `generateKey`
+
+  Inputs for generating a signing public key. Valid only during a registration
+  ceremony.
+
+- `sign`
+
+  Inputs for generating a signature. MAY be present during both registration and
+  authentication ceremonies.
+
+- `arkgGenerateSeed`
+
+  Inputs for generating an ARKG seed public key. Valid only during a
+  registration ceremony.
+
+- `arkgSign`
+
+  Inputs for generating a signature using a private key derived using ARKG.
+  Valid only during an authentication ceremony.
+
+```
 dictionary SignExtensionGenerateKeyInputs {
     required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
 
     SignExtensionKeyUsageRequirement userVerification = "discouraged";
     SignExtensionKeyUsageRequirement backupEligible   = "indifferent";
 }
+```
 
+- `pubKeyCredParams`: List of what signature algorithms the RP supports, ordered
+  from most to least preferred. The authenticator chooses the most preferred
+  algorithm it supports, and returns an error if it supports none of the listed
+  algorithms.
+
+- `userVerification`: The RP's preference on whether user verification is
+  required for signatures made with this key. This setting will be fixed for the
+  lifetime of the key; if some operations require user verification and some do
+  not, the RP must generate one key for each use.
+
+  The client will negotiate with any available authenticators to choose one that
+  can best satisfy this preference.
+
+- `backupEligible`: The RP's preference on whether the required key will be
+  backup eligible. If some operations require or allow a backup eligible key and
+  some do not, the RP must generate one key for each use.
+
+  The client will negotiate with any available authenticators to choose one that
+  can best satisfy this preference.
+
+```
 enum SignExtensionOptionRequirement {
     "forbidden",    // CBOR 0
     "discouraged",  // CBOR 1
@@ -94,23 +138,96 @@ enum SignExtensionOptionRequirement {
     "preferred",    // CBOR 3
     "required",     // CBOR 4
 }
+```
 
+- `forbidden`: User verification MUST NOT be used with this key, or this key
+  MUST NOT be backup eligible. If no authenticator can satisfy this requirement,
+  the client MUST return an error.
+
+- `discouraged`: The RP prefers that user verification SHOULD NOT be used with
+  this key, or this key SHOULD NOT be backup eligible. The client SHOULD prefer
+  using an authenticator that can satisfy this preference if possible, and
+  SHOULD attempt to configure the authenticator to satisfy this preference if
+  possible. If the preference cannot be satisfied, the client MAY behave as if
+  the preference was set to `indifferent`.
+
+- `indifferent`: The RP has no preference on whether user verification will be
+  used with this key, or whether the key is backup eligible. The client and
+  authenticator MAY use any configuration of their choosing.
+
+- `preferred`: The RP prefers that user verification SHOULD be used with this
+  key, or this key SHOULD be backup eligible. The client SHOULD prefer using an
+  authenticator that can satisfy this preference if possible, and SHOULD attempt
+  to configure the authenticator to satisfy this preference if possible. If the
+  preference cannot be satisfied, the client MAY behave as if the preference was
+  set to `indifferent`.
+
+- `required`: User verification MUST be used with this key, or this key MUST be
+  backup eligible. If no authenticator can satisfy this requirement, the client
+  MUST return an error.
+
+
+```
 dictionary SignExtensionSignInputs {
-    required BufferSource tbs;                              // Data to be signed
-    record<USVString, BufferSource> keyHandleByCredential;  // Keys from which to choose one to sign with
-}
-
-dictionary SignExtensionArkgSignInputs {
-    required BufferSource tbs;                                                     // Data to be signed
-    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;  // Keys from which to choose one to sign with
-}
-
-dictionary SignExtensionArkgKeyHandle {
-    required BufferSource seedHandle;      // seedHandle from createSeed output
-    required BufferSource ecdhePublicKey;  // `E` field of `cred` parameter of DeriveSK in ARKG
-    required BufferSource mac;             // `µ` field of `cred` parameter of DeriveSK in ARKG
+    required BufferSource tbs;
+    record<USVString, BufferSource> keyHandleByCredential;
 }
 ```
+
+Inputs for generating a signature with a previously generated public key, or a
+new public key generated and returned along with the signature.
+
+- `tbs`: The data to be signed. Its format may depend on the signature algorithm.
+
+- `keyHandleByCredential`: A record mapping base64url encoded credential IDs to
+  signing key handles to use for each credential. Only applicable during
+  assertions when `allowCredentials` is not empty.
+
+  This input is OPTIONAL during registration ceremonies if the `genKey` input is
+  also set, and REQUIRED during authentication ceremonies.
+
+```
+dictionary SignExtensionArkgSignInputs {
+    required BufferSource tbs;
+    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;
+}
+```
+
+Inputs for generating a signature using a private key derived using ARKG. The
+corresponding public key is generated by the RP alone using the procedure
+defined in the "Generate public key" section of "RP operations".
+
+- `tbs`: The data to be signed. Its format may depend on the signature algorithm.
+
+- `keyHandleByCredential`: A record mapping base64url encoded credential IDs to
+  signing key handles to use for each credential. Only applicable during
+  assertions when `allowCredentials` is not empty.
+
+  The values for this record are generated using the procedure defined in the
+  "Generate public key" section of "RP operations"
+
+```
+dictionary SignExtensionArkgKeyHandle {
+    required BufferSource seedHandle;
+    required BufferSource ecdhePublicKey;
+    required BufferSource mac;
+}
+```
+
+This structure is one of the outputs of the procedure defined in the "Generate
+public key" section of "RP operations".
+
+- `seedHandle`: The `seedHandle` extension output emitted during the
+  registration ceremony when the ARKG seed public key was generated.
+
+- `ecdhePublicKey`: The ephemeral Elliptic Curve Diffie-Hellman (ECDHE) public
+  key that was used to generate the public key corresponding to this key handle.
+  See the "Generate public key" section of "RP operations".
+
+- `mac`: The MAC computed over the rest of the key handle fields when generating
+  the public key corresponding to this key handle. See the "Generate public key"
+  section of "RP operations".
+
 
 ### Client extension processing
 
@@ -140,6 +257,21 @@ dictionary SignExtensionOutputs {
 };
 ```
 
+- `publicKey`: The generated public key. Present only if the `genKey` input was
+  set.
+
+- `keyHandle`: The key handle of the generated public key. Present only if the
+  `genKey` input was set.
+
+- `seedPublicKey`: The generated ARKG seed public key. Present only if the
+  `arkgGenerateSeed` input was set.
+
+- `seedHandle`: The seed handle of the generated ARKG seed public key. Present
+  only if the `arkgGenerateSeed` input was set.
+
+- `signature`: The generated signature. Present only if the `sign` or `arkgSign`
+  input was set.
+
 
 ### Authenticator extension input
 
@@ -158,7 +290,7 @@ signExtensionInputs = {
 
 signExtensionSignInputs = {
     tbs: bstr,
-    ? kh: { + bstr => bstr },  // Keys from which to choose one to sign with
+    ? kh: { + bstr => bstr },
 }
 
 signExtensionOptionRequirement = 0..4
@@ -171,14 +303,14 @@ signExtensionGenerateKeyInputs = {
 }
 
 signExtensionArkgKeyHandle = {
-    sh: bstr;   // seedHandle from createSeed output
-    epk: bstr;  // `E` field of `cred` parameter of DeriveSK in ARKG
-    mac: bstr;  // `µ` field of `cred` parameter of DeriveSK in ARKG
+    sh: bstr;
+    epk: bstr;
+    mac: bstr;
 }
 
 signExtensionArkgSignInputs = {
-    tbs: bstr;                                     // Data to be signed
-    kh: { + bstr => signExtensionArkgKeyHandle },  // Keys from which to choose one to sign with
+    tbs: bstr;
+    kh: { + bstr => signExtensionArkgKeyHandle },
 }
 ```
 
@@ -556,13 +688,13 @@ dictionary KeyAgreementExtensionInputs {
 };
 
 dictionary KeyAgreementExtensionDhInputs {
-    required BufferSource publicKey;  // Public key for Diffie-Hellman key agreement
-    required BufferSource keyHandle;  // Private key handle for Diffie-Hellman key agreement
+    required BufferSource publicKey;
+    required BufferSource keyHandle;
 }
 
 dictionary KeyAgreementExtensionArkgEcdhInputs {
-    required BufferSource publicKey;                                               // Public key for ECDH key agreement
-    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;  // Private key handles for ECDH key agreement
+    required BufferSource publicKey;
+    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;
 }
 ```
 
