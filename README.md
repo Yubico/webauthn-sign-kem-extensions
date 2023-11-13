@@ -316,6 +316,14 @@ TODO: If `generateKey` or `arkgGenerateSeed` is present, use the
 suitable authenticator. Set the `genKey.up` or `arkgGen.up` authenticator
 extension input to 4 (required).
 
+TODO: If `sign.keyHandleByCredential` is present, set the `sign.kh` input to
+`sign.keyHandleByCredential[credId]`, where `credId` is the base64url encoded
+credential ID of the credential used in the ceremony.
+
+TODO: If `arkgSign` is present, set the `arkgSign.kh` input to
+`arkgSign.keyHandleByCredential[credId]`, where `credId` is the base64url
+encoded credential ID of the credential used in the ceremony.
+
 
 ### Client extension output
 
@@ -344,7 +352,7 @@ signExtensionInputs = {
 
 signExtensionSignInputs = {
     tbs: bstr,
-    ? kh: { + bstr => bstr },
+    ? kh: bstr,
 }
 
 signExtensionOptionRequirement = 0..4
@@ -364,7 +372,7 @@ signExtensionArkgKeyHandle = {
 
 signExtensionArkgSignInputs = {
     tbs: bstr;
-    kh: { + bstr => signExtensionArkgKeyHandle },
+    kh: signExtensionArkgKeyHandle,
 }
 ```
 
@@ -436,10 +444,7 @@ signExtensionArkgSignInputs = {
 
         Otherwise:
 
-        1. If `allowCredentials` is empty, return CTAP2_ERR_X.
-
-        1. Let `credentialId` be the credential ID of the credential being used for this assertion.
-            Let `keyHandle` be `sign.kh[credentialId]`.
+        1. Let `keyHandle` be the value of the `sign.kh` extension input.
 
     1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
 
@@ -545,9 +550,7 @@ signExtensionArkgSignInputs = {
 
     1. If `genKey` or `sign` is present, return CTAP2_ERR_X.
 
-    1. Let `credentialId` be the credential ID of the credential being used for this assertion.
-       Let `keyHandle` be `arkgSign.kh[credentialId]`.
-       If `keyHandle` is null or undefined, return CTAP2_ERR_X.
+    1. Let `keyHandle` be the value of the `arkgSign.kh` extension input.
 
     1. Perform the internal operation _derive ARKG private key_ with `keyHandle` as the argument.
 
