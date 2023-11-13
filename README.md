@@ -346,6 +346,10 @@ signExtensionArkgSignInputs = {
 
         Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
 
+    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
         seeds to deterministically generate a new signing key pair with private
         key `p` and public key `P`.
@@ -409,6 +413,10 @@ signExtensionArkgSignInputs = {
 
         `alg` MUST be a fully-specified COSEAlgorithmIdentifier.
 
+    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
         seeds to deterministically regenerate the signing key pair with private
         key `p` and public key `P`.
@@ -453,6 +461,10 @@ signExtensionArkgSignInputs = {
         - If `arkgGen.up` is 4, let `up` be `true`.
 
         Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
+
+    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
         seeds to deterministically generate a new EC key pair `s, S` on the
@@ -529,6 +541,10 @@ The operation returns a private key `p` or an error.
     Let `crv` be this curve.
     Let `crvOL` be the byte length of the order of the `crv` group.
     Let `crvSL` be the byte length of the scalar field of `crv`.
+
+ 1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+ 1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+ 1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
 
  1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the seeds
     to deterministically regenerate the EC key pair `s, S` on the curve `crv`.
