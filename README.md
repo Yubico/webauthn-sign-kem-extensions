@@ -91,6 +91,41 @@ signatures against the public key `P` and do not need attestation, or if they
 rely on a trusted external party to verify the attestation for `P`.
 
 
+### Considerations for discoverable keys
+
+Although these extensions may be used with discoverable keys, they do not
+support usage with an empty `allowCredentials`, for the following reasons:
+
+- The `sign` extension may be used to sign arbitrary data, but its intended use
+  is for signing data that is meaningful on its own. This is unlike a random
+  authentication challenge, which may be meaningless on its own and is used only
+  to guarantee that an authentication signature was generated recently. In order
+  to sign meaningful data, the RP must first know what is to be signed, and thus
+  presumably must also first know which key is to be used for signing. Thus, the
+  signing use case is largely incompatible with the anonymous authentication
+  challenge use case.
+
+- The `keyAgreement` extension may be used to derive encryption keys, but in
+  order to do so the RP needs to supply the key derivation parameters for the
+  ciphertext in question.
+
+  For example, say an RP wishes to allow a user to log in and immediately
+  decrypt a ciphertext downloaded from the user's account. The RP does not know
+  which ciphertext is to be decrypted before the user is identified, and thus
+  cannot diversify the key derivation parameters by ciphertext or even by user.
+  The RP would have to use the same key agreement keypair for _all_ key
+  agreements performed, and could not feasibly replace this key. The encryption
+  could not be done on the client side, since the RP's shared key agreement
+  private key would enable any user to decrypt any other user's ciphertexts.
+  Thus it would be better for that RP to use server-side access control instead.
+
+In conclusion: the RP almost certainly needs to identify the user before
+performing a signing or key agreement operation, by the nature of these
+operations. Thus the restriction to non-empty `allowCredentials` is unlikely to
+impose any additional restriction in practice, but does enable support for
+stateless authenticator implementations.
+
+
 ### Notation
 
 The following notation is used throughout this document:
