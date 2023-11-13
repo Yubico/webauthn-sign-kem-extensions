@@ -150,13 +150,27 @@ partial dictionary AuthenticationExtensionsClientInputs {
 };
 
 dictionary AuthenticationExtensionsSignInputs {
-    AuthenticationExtensionsSignGenerateKeyInputs generateKey;
-    AuthenticationExtensionsSignSignInputs sign;
-
     AuthenticationExtensionsSignGenerateKeyInputs arkgGenerateSeed;
     AuthenticationExtensionsSignArkgSignInputs arkgSign;
+
+    AuthenticationExtensionsSignGenerateKeyInputs generateKey;
+    AuthenticationExtensionsSignSignInputs sign;
 };
 ```
+
+- `arkgGenerateSeed`
+
+  Inputs for generating an ARKG seed public key. Valid only during a
+  registration ceremony.
+
+  If both `arkgGenerateSeed` and `generateKey` are present, `arkgGenerateSeed`
+  takes precedence. If the authenticator supports ARKG, it will generate an ARKG
+  seed public key; otherwise it will generate an ordinary public key.
+
+- `arkgSign`
+
+  Inputs for generating a signature using a private key derived using ARKG.
+  Valid only during an authentication ceremony.
 
 - `generateKey`
 
@@ -167,16 +181,6 @@ dictionary AuthenticationExtensionsSignInputs {
 
   Inputs for generating a signature. MAY be present during both registration and
   authentication ceremonies.
-
-- `arkgGenerateSeed`
-
-  Inputs for generating an ARKG seed public key. Valid only during a
-  registration ceremony.
-
-- `arkgSign`
-
-  Inputs for generating a signature using a private key derived using ARKG.
-  Valid only during an authentication ceremony.
 
 ```
 dictionary AuthenticationExtensionsSignGenerateKeyInputs {
@@ -343,11 +347,11 @@ $$extensionInput //= (
 )
 
 signExtensionInputs = {
-    genKey: signExtensionGenerateKeyInputs,
-    ? sign: signExtensionSignInputs,
-    //
     arkgGen: signExtensionGenerateKeyInputs,
     ? arkgSign: signExtensionArkgSignInputs,
+    //
+    genKey: signExtensionGenerateKeyInputs,
+    ? sign: signExtensionSignInputs,
 };
 
 signExtensionSignInputs = {
@@ -381,113 +385,10 @@ signExtensionArkgSignInputs = {
 
  1. If none of `genKey`, `sign`, `arkgGen` or `arkgSign` is present, return CTAP2_ERR_X.
 
- 1. If `genKey` is present:
+ 1. If both `arkgGen` and `arkgSign` are present, return CTAP2_ERR_X.
+
+ 1. If `arkgGen` is present and this authenticator supports ARKG:
     1. If the current operation is not an `authenticatorMakeCredential` operation, return CTAP2_ERR_X.
-
-    1. If `arkgGen` or `arkgSign` is present, return CTAP2_ERR_X.
-
-    1. Let `alg` be the authenticator's choice of one of the algorithms listed in `genKey.alg`.
-
-    1. If `alg` is not valid for signature operations, return CTAP2_ERR_X.
-
-    1. Return CTAP2_ERR_X if any of the following is true:
-        - `genKey.up` is 0 and this authenticator always requires user presence.
-        - `genKey.up` is 5 and this authenticator is not capable of a test of user presence.
-        - `genKey.uv` is 0 and this authenticator always requires user verification.
-        - `genKey.uv` is 5 and this authenticator is not capable of user verification.
-        - `genKey.be` is 0 and this authenticator can only create backup eligible credentials.
-        - `genKey.be` is 5 and this authenticator is not capable of creating backup eligible credentials.
-
-    1. Let `up` be a Boolean value as follows.
-
-        - If `genKey.up` is 0, let `up` be `false`.
-        - If `genKey.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
-        - If `genKey.up` is 2, let `up` be `false` or `true` as chosen by the authenticator.
-        - If `genKey.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
-        - If `genKey.up` is 4, let `up` be `true`.
-
-        Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
-
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-
-    1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
-        seeds to deterministically generate a new signing key pair with private
-        key `p` and public key `P`.
-
-    1. Let `P_enc` be `P` encoded in COSE_Key format.
-
-    1. Let `keyHandle` be an authenticator-specific encoding of `alg`, `up`,
-         `uv` and `be`, which the authenticator can later use to derive the same
-         key pair `p, P`. The encoding SHOULD include integrity protection to
-         ensure that a given `keyHandle` is valid for a particular
-         authenticator.
-
-        One possible implementation is as follows:
-
-        1. Let `macKey` be a per-credential authenticator secret.
-
-        1. Let `keyHandleParams = [alg, up, uv, be]` as CBOR.
-
-        1. Let `keyHandle = HMAC-SHA-256(macKey, keyHandleParams || UTF8Encode("sign") || rpIdHash) || keyHandleParams`.
-
-    1. Set the extension output `sign.pk` to `P_enc`. Set the extension output `sign.kh` to `keyHandle`.
-
-
- 1. If `sign` is present:
-    1. If `arkgGen` or `arkgSign` is present, return CTAP2_ERR_X.
-
-    1. If `genKey` is present:
-
-        1. Let `keyHandle` be the value of the `sign.kh` extension output.
-
-        Otherwise:
-
-        1. Let `keyHandle` be the value of the `sign.kh` extension input.
-
-    1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
-
-    1. Decode the authenticator-specific encoding of `keyHandle` to extract the
-        `alg`, `up`, `uv` and `be` values. This procedure SHOULD verify
-        integrity to ensure that `keyHandle` was generated by this
-        authenticator.
-
-        One possible implementation, compatible with the example encoding
-        described in the `genKey` operation, is as follows:
-
-        1. Let `macKey` be a per-credential authenticator secret.
-
-        1. Let `mac = LEFT(32, keyHandle)` and `keyHandleParams = DROP_LEFT(32, keyHandle)`.
-
-        1. Verify that `mac == HMAC-SHA-256(macKey, keyHandleParams ||
-            UTF8Encode("sign") || rpIdHash)`. If not, this `keyHandle` was
-            generated by a different authenticator. Return CTAP2_ERR_X.
-
-        1. Parse `[alg, up, uv, be] = keyHandleParams` as CBOR.
-
-        1. Return `(alg, up, uv, be)`.
-
-        `alg` MUST be a fully-specified COSEAlgorithmIdentifier.
-
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-
-    1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
-        seeds to deterministically regenerate the signing key pair with private
-        key `p` and public key `P`.
-
-    1. Let `sig` be a signature over `tbs` using private key `p` and algorithm
-        `alg`.
-
-    1. Set the extension output `sign.sig` to `sig`. Return the extension output.
-
-
- 1. If `arkgGen` is present:
-    1. If the current operation is not an `authenticatorMakeCredential` operation, return CTAP2_ERR_X.
-
-    1. If `genKey`, `sign` or `arkgSign` is present, return CTAP2_ERR_X.
 
     1. Let `alg` be the authenticator's choice of one of the algorithms listed in `arkgGen.alg`.
         `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
@@ -543,12 +444,11 @@ signExtensionArkgSignInputs = {
 
         1. Let `seedHandle = HMAC-SHA-256(seedMacKey, seedHandleParams || UTF8Encode("sign") || rpIdHash) || seedHandleParams`.
 
-    1. Return `{ spk: S_enc, sh: seedHandle }` as the `sign` extension output.
+    1. Return `{ spk: S_enc, sh: seedHandle }` as the `sign` extension output
+       and terminate these processing steps.
 
- 1. If `arkgSign` is present:
+ 1. If `arkgSign` is present and this authenticator supports ARKG:
     1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
-
-    1. If `genKey` or `sign` is present, return CTAP2_ERR_X.
 
     1. Let `keyHandle` be the value of `arkgSign.kh`.
 
@@ -627,7 +527,112 @@ signExtensionArkgSignInputs = {
 
         ISSUE: Not always DER encoding for every `alg`?
 
-    1. Return `{ sig: sig }` as the `sign` extension output.
+    1. Return `{ sig: sig }` as the `sign` extension output and terminate these
+       processing steps.
+
+
+ 1. If `genKey` is present:
+    1. If the current operation is not an `authenticatorMakeCredential` operation, return CTAP2_ERR_X.
+
+    1. Let `alg` be the authenticator's choice of one of the algorithms listed in `genKey.alg`.
+
+    1. If `alg` is not valid for signature operations, return CTAP2_ERR_X.
+
+    1. Return CTAP2_ERR_X if any of the following is true:
+        - `genKey.up` is 0 and this authenticator always requires user presence.
+        - `genKey.up` is 5 and this authenticator is not capable of a test of user presence.
+        - `genKey.uv` is 0 and this authenticator always requires user verification.
+        - `genKey.uv` is 5 and this authenticator is not capable of user verification.
+        - `genKey.be` is 0 and this authenticator can only create backup eligible credentials.
+        - `genKey.be` is 5 and this authenticator is not capable of creating backup eligible credentials.
+
+    1. Let `up` be a Boolean value as follows.
+
+        - If `genKey.up` is 0, let `up` be `false`.
+        - If `genKey.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
+        - If `genKey.up` is 2, let `up` be `false` or `true` as chosen by the authenticator.
+        - If `genKey.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
+        - If `genKey.up` is 4, let `up` be `true`.
+
+        Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
+
+    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+
+    1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
+        seeds to deterministically generate a new signing key pair with private
+        key `p` and public key `P`.
+
+    1. Let `P_enc` be `P` encoded in COSE_Key format.
+
+    1. Let `keyHandle` be an authenticator-specific encoding of `alg`, `up`,
+         `uv` and `be`, which the authenticator can later use to derive the same
+         key pair `p, P`. The encoding SHOULD include integrity protection to
+         ensure that a given `keyHandle` is valid for a particular
+         authenticator.
+
+        One possible implementation is as follows:
+
+        1. Let `macKey` be a per-credential authenticator secret.
+
+        1. Let `keyHandleParams = [alg, up, uv, be]` as CBOR.
+
+        1. Let `keyHandle = HMAC-SHA-256(macKey, keyHandleParams || UTF8Encode("sign") || rpIdHash) || keyHandleParams`.
+
+    1. Set the extension output `sign.pk` to `P_enc`. Set the extension output `sign.kh` to `keyHandle`.
+
+        Note: Do not terminate extension processing, proceed with processing the steps below.
+
+
+ 1. If `sign` is present:
+    1. If `arkgGen` or `arkgSign` is present, return CTAP2_ERR_X.
+
+    1. If `genKey` is present:
+
+        1. Let `keyHandle` be the value of the `sign.kh` extension output.
+
+        Otherwise:
+
+        1. Let `keyHandle` be the value of the `sign.kh` extension input.
+
+    1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
+
+    1. Decode the authenticator-specific encoding of `keyHandle` to extract the
+        `alg`, `up`, `uv` and `be` values. This procedure SHOULD verify
+        integrity to ensure that `keyHandle` was generated by this
+        authenticator.
+
+        One possible implementation, compatible with the example encoding
+        described in the `genKey` operation, is as follows:
+
+        1. Let `macKey` be a per-credential authenticator secret.
+
+        1. Let `mac = LEFT(32, keyHandle)` and `keyHandleParams = DROP_LEFT(32, keyHandle)`.
+
+        1. Verify that `mac == HMAC-SHA-256(macKey, keyHandleParams ||
+            UTF8Encode("sign") || rpIdHash)`. If not, this `keyHandle` was
+            generated by a different authenticator. Return CTAP2_ERR_X.
+
+        1. Parse `[alg, up, uv, be] = keyHandleParams` as CBOR.
+
+        1. Return `(alg, up, uv, be)`.
+
+        `alg` MUST be a fully-specified COSEAlgorithmIdentifier.
+
+    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+
+    1. Use `up`, `uv`, `be` and a per-credential authenticator secret as the
+        seeds to deterministically regenerate the signing key pair with private
+        key `p` and public key `P`.
+
+    1. Let `sig` be a signature over `tbs` using private key `p` and algorithm
+        `alg`.
+
+    1. Set the extension output `sign.sig` to `sig`. Return the extension output.
+
 
 
 ### Authenticator extension output
@@ -638,33 +643,40 @@ $$extensionOutput //= (
 )
 
 signExtensionOutputs = {
-    pk: bstr,
-    kh: bstr,
-    ? sig: bstr,
-
-    //
-
     spk: bstr,
     sh: bstr,
 
     //
 
     sig: bstr,
+
+    //
+
+    pk: bstr,
+    kh: bstr,
+    ? sig: bstr,
 },
 ```
 
-- `pk`: The generated public key. Present only if the `genKey` input was set.
-
-- `kh`: The key handle of the generated public key. Present only if the `genKey`
-  input was set.
-
 - `spk`: The generated ARKG seed public key. Present only if the `arkgGen` input
-  was set.
+  was set and the authenticator supports ARKG.
 
 - `sh`: The seed handle of the generated ARKG seed public key. Present only if
-  the `arkgGen` input was set.
+  the `arkgGen` input was set and the authenticator supports ARKG.
 
 - `sig`: The signature. Present only if the `sign` or `arkgSign` input was set.
+
+  If the `arkgSign` and `sign` inputs were both set, then the public key of this
+  signature is determined by the `id` of the `PublicKeyCredential`: the
+  signature is for the public key corresponding to
+  `arkgSign.keyHandleByCredential[id]` if that exists, otherwise the signature
+  is for the public key corresponding to `sign.keyHandleByCredential[id]`.
+
+- `pk`: The generated public key. Present only if the `genKey` input was set and
+  the `spk` output is absent.
+
+- `kh`: The key handle of the generated public key. Present only if the `genKey`
+  input was set and the `sh` output is absent.
 
 
 ### RP operations
