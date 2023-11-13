@@ -146,15 +146,15 @@ public key is not the same as the credential public key.
 
 ```webidl
 partial dictionary AuthenticationExtensionsClientInputs {
-    SignExtensionInputs sign;
+    AuthenticationExtensionsSignInputs sign;
 };
 
-dictionary SignExtensionInputs {
-    SignExtensionGenerateKeyInputs generateKey;
-    SignExtensionSignInputs sign;
+dictionary AuthenticationExtensionsSignInputs {
+    AuthenticationExtensionsSignGenerateKeyInputs generateKey;
+    AuthenticationExtensionsSignSignInputs sign;
 
-    SignExtensionGenerateKeyInputs arkgGenerateSeed;
-    SignExtensionArkgSignInputs arkgSign;
+    AuthenticationExtensionsSignGenerateKeyInputs arkgGenerateSeed;
+    AuthenticationExtensionsSignArkgSignInputs arkgSign;
 };
 ```
 
@@ -179,11 +179,11 @@ dictionary SignExtensionInputs {
   Valid only during an authentication ceremony.
 
 ```
-dictionary SignExtensionGenerateKeyInputs {
+dictionary AuthenticationExtensionsSignGenerateKeyInputs {
     required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
 
-    SignExtensionKeyUsageRequirement userVerification = "discouraged";
-    SignExtensionKeyUsageRequirement backupEligible   = "indifferent";
+    AuthenticationExtensionsSignKeyUsageRequirement userVerification = "discouraged";
+    AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "indifferent";
 }
 ```
 
@@ -208,7 +208,7 @@ dictionary SignExtensionGenerateKeyInputs {
   can best satisfy this preference.
 
 ```
-enum SignExtensionOptionRequirement {
+enum AuthenticationExtensionsSignOptionRequirement {
     "forbidden",    // CBOR 0
     "discouraged",  // CBOR 1
     "indifferent",  // CBOR 2
@@ -245,7 +245,7 @@ enum SignExtensionOptionRequirement {
 
 
 ```
-dictionary SignExtensionSignInputs {
+dictionary AuthenticationExtensionsSignSignInputs {
     required BufferSource tbs;
     record<USVString, BufferSource> keyHandleByCredential;
 }
@@ -264,9 +264,9 @@ new public key generated and returned along with the signature.
   also set, and REQUIRED during authentication ceremonies.
 
 ```
-dictionary SignExtensionArkgSignInputs {
+dictionary AuthenticationExtensionsSignArkgSignInputs {
     required BufferSource tbs;
-    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;
+    required record<USVString, AuthenticationExtensionsSignArkgKeyHandle> keyHandleByCredential;
 }
 ```
 
@@ -284,7 +284,7 @@ defined in the "Generate public key" section of "RP operations".
   "Generate public key" section of "RP operations"
 
 ```
-dictionary SignExtensionArkgKeyHandle {
+dictionary AuthenticationExtensionsSignArkgKeyHandle {
     required BufferSource seedHandle;
     required BufferSource ecdhePublicKey;
     required BufferSource mac;
@@ -565,7 +565,7 @@ signExtensionArkgSignInputs = {
 #### Internal operation: derive ARKG private key
 
 This operation is internal to the authenticator, and takes one parameter
-`keyHandle` of type `SignExtensionArkgKeyHandle`.
+`keyHandle` of type `AuthenticationExtensionsSignArkgKeyHandle`.
 
 The operation returns a private key `p` or an error.
 
@@ -756,22 +756,22 @@ exchange instead of a signature. Inputs change like this:
 
 
 ```webidl
-dictionary KeyAgreementExtensionInputs {
-    SignExtensionGenerateKeyInputs generateKey;
-    KeyAgreementExtensionDhInputs dh;
+dictionary AuthenticationExtensionsKeyAgreementInputs {
+    AuthenticationExtensionsSignGenerateKeyInputs generateKey;
+    AuthenticationExtensionsKeyAgreementDhInputs dh;
 
-    SignExtensionGenerateKeyInputs arkgGenerateSeed;
-    SKeyAgreementExtensioArkgEcdhInputs arkgEcdh;
+    AuthenticationExtensionsSignGenerateKeyInputs arkgGenerateSeed;
+    KeyAgreementExtensioArkgEcdhInputs arkgEcdh;
 };
 
-dictionary KeyAgreementExtensionDhInputs {
+dictionary AuthenticationExtensionsKeyAgreementDhInputs {
     required BufferSource publicKey;
     required BufferSource keyHandle;
 }
 
-dictionary KeyAgreementExtensionArkgEcdhInputs {
+dictionary AuthenticationExtensionsKeyAgreementArkgEcdhInputs {
     required BufferSource publicKey;
-    required record<USVString, SignExtensionArkgKeyHandle> keyHandleByCredential;
+    required record<USVString, AuthenticationExtensionsSignArkgKeyHandle> keyHandleByCredential;
 }
 ```
 
@@ -779,10 +779,10 @@ and outputs like this:
 
 ```webidl
 partial dictionary AuthenticationExtensionsClientOutputs {
-    KeyAgreementExtensionOutputs keyAgreement;
+    AuthenticationExtensionsKeyAgreementOutputs keyAgreement;
 };
 
-dictionary KeyAgreementExtensionOutputs {
+dictionary AuthenticationExtensionsKeyAgreementOutputs {
     ArrayBuffer publicKey;
     ArrayBuffer keyHandle;
 
