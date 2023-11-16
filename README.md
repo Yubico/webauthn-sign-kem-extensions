@@ -520,9 +520,9 @@ signExtensionOptionRequirement = 0..4
 
 signExtensionGenerateKeyInputs = {
     alg: [+ COSEAlgorithmIdentifier],
-    ? up: signExtensionOptionRequirement .default 4,  // Default: "required"
-    ? uv: signExtensionOptionRequirement .default 1,  // Default: "discouraged"
-    ? be: signExtensionOptionRequirement .default 2,  // Default: "indifferent"
+    ? up: signExtensionOptionRequirement .default 4,  ; Default: "required"
+    ? uv: signExtensionOptionRequirement .default 1,  ; Default: "discouraged"
+    ? be: signExtensionOptionRequirement .default 2,  ; Default: "indifferent"
 }
 
 signExtensionArkgKeyHandle = {
