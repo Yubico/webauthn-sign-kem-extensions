@@ -356,7 +356,7 @@ signExtensionInputs = {
 
 signExtensionSignInputs = {
     tbs: bstr,
-    ? kh: bstr,
+    ? kh: { + bstr => bstr },
 }
 
 signExtensionOptionRequirement = 0..4
@@ -376,7 +376,7 @@ signExtensionArkgKeyHandle = {
 
 signExtensionArkgSignInputs = {
     tbs: bstr;
-    kh: signExtensionArkgKeyHandle,
+    kh: { + bstr => signExtensionArkgKeyHandle },
 }
 ```
 
@@ -450,7 +450,12 @@ signExtensionArkgSignInputs = {
  1. If `arkgSign` is present and this authenticator supports ARKG:
     1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
 
-    1. Let `keyHandle` be the value of `arkgSign.kh`.
+    1. If `allowCredentials` is empty, return CTAP2_ERR_X.
+
+    1. Let `credentialId` be the credential ID of the credential being used for this assertion.
+        Let `keyHandle` be `sign.kh[credentialId]`.
+
+    1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
 
     1. Let `seedHandle` be the value of `keyHandle.sh`.
 
@@ -594,7 +599,12 @@ signExtensionArkgSignInputs = {
 
         Otherwise:
 
-        1. Let `keyHandle` be the value of the `sign.kh` extension input.
+        1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
+
+        1. If `allowCredentials` is empty, return CTAP2_ERR_X.
+
+        1. Let `credentialId` be the credential ID of the credential being used
+            for this assertion. Let `keyHandle` be `sign.kh[credentialId]`.
 
     1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
 
@@ -771,7 +781,7 @@ dictionary AuthenticationExtensionsKeyAgreementInputs {
 
 dictionary AuthenticationExtensionsKeyAgreementDhInputs {
     required BufferSource publicKey;
-    required BufferSource keyHandle;
+    record<USVString, BufferSource> keyHandleByCredential;
 }
 
 dictionary AuthenticationExtensionsKeyAgreementArkgEcdhInputs {
