@@ -247,6 +247,10 @@ enum AuthenticationExtensionsSignOptionRequirement {
   backup eligible. If no authenticator can satisfy this requirement, the client
   MUST return an error.
 
+The CBOR representation of an `AuthenticationExtensionsSignOptionRequirement`
+value is the index of that value, starting from zero, in the array
+`["forbidden", "discouraged", "indifferent", "preferred", "required"]`.
+
 
 ```
 dictionary AuthenticationExtensionsSignSignInputs {
@@ -312,21 +316,174 @@ public key" section of "RP operations".
 
 ### Client extension processing
 
-TODO: Translate the extension input to CBOR. Return the Boolean value `true` as
-the client extension output.
+ 1. If none of `generateKey`, `sign`, `arkgGenerateSeed` or `arkgSign` is
+    present, return a "NotSupportedError" DOMException.
 
-TODO: If `generateKey` or `arkgGenerateSeed` is present, use the
-`userVerification` and `backupEligible` values to help the user select a
-suitable authenticator. Set the `genKey.up` or `arkgGen.up` authenticator
-extension input to 4 (required).
+ 1. If both `arkgGenerateSeed` and `arkgSign` are present, return a
+    DOMException whose name is "NotSupportedError".
 
-TODO: If `sign.keyHandleByCredential` is present, set the `sign.kh` input to
-`sign.keyHandleByCredential[credId]`, where `credId` is the base64url encoded
-credential ID of the credential used in the ceremony.
+ 1. Let `extInput` be an empty CBOR map.
 
-TODO: If `arkgSign` is present, set the `arkgSign.kh` input to
-`arkgSign.keyHandleByCredential[credId]`, where `credId` is the base64url
-encoded credential ID of the credential used in the ceremony.
+ 1. If `arkgSign` is present:
+
+    1. If any key in `arkgSign.keyHandleByCredential` is the empty string, or is
+        not a valid base64url encoding, or does not equal the id of some element
+        of `allowCredentials` after performing base64url decoding, then return a
+        DOMException whose name is “SyntaxError”.
+
+ 1. If `sign` is present:
+
+    1. If any key in `sign.keyHandleByCredential` is the empty string, or is not
+        a valid base64url encoding, or does not equal the id of some element of
+        `allowCredentials` after performing base64url decoding, then return a
+        DOMException whose name is “SyntaxError”.
+
+ 1. If `arkgGenerateSeed` is present:
+
+    1. If the current ceremony is not a registration ceremony, return a
+       DOMException whose name is "NotSupportedError".
+
+    1. When selecting the authenticator to use for the ceremony, attempt to
+       select one that supports the `sign` extension with ARKG.
+
+    1. If `arkgGenerateSeed.pubKeyCredParams` contains any item whose `alg`
+       member's value is not a fully specified COSEAlgorithmIdentifier, return a
+       DOMException whose name is "NotSupportedError"
+
+    1. If `arkgGenerateSeed.userVerification` is `"forbidden"` or
+       `"discouraged"` and `authenticatorSelection.userVerification` is not
+       `"discouraged"`, return a DOMException whose name is "NotSupportedError".
+
+       If `arkgGenerateSeed.userVerification` is `"preferred"` or
+       `"discouraged"` and `authenticatorSelection.userVerification` is not
+       `"preferred"`, return a DOMException whose name is "NotSupportedError".
+
+       If `arkgGenerateSeed.userVerification` is `"required"` or `"discouraged"`
+       and `authenticatorSelection.userVerification` is not `"required"`, return
+       a DOMException whose name is "NotSupportedError".
+
+       If `arkgGenerateSeed.userVerification` is `"forbidden"`, select an
+       authenticator that does not always require user verification. If this is
+       not possible, return a DOMException whose name is “NotAllowedError”.
+
+    1. If `arkgGenerateSeed.backupEligible` is `"forbidden"`, select an
+       authenticator that can create credentials that are not backup eligible.
+       Configure the authenticator to create a credential that is not backup
+       eligible. If this is not possible, return a DOMException whose name is
+       “NotAllowedError”.
+
+       If `arkgGenerateSeed.backupEligible` is `"discouraged"`, attempt to
+       select an authenticator that can create credentials that are not backup
+       eligible. If possible, configure the authenticator to create a credential
+       that is not backup eligible.
+
+       If `arkgGenerateSeed.backupEligible` is `"preferred"`, attempt to select
+       an authenticator that can create backup eligible credentials. If
+       possible, configure the authenticator to create a backup eligible
+       credential.
+
+       If `arkgGenerateSeed.backupEligible` is `"preferred"`, select an
+       authenticator that can create backup eligible credentials and configure
+       the authenticator to create a backup eligible credential. If this is not
+       possible, return a DOMException whose name is “NotAllowedError”.
+
+    1. Set `extInput.arkgGen` to a CBOR map with the entries:
+
+        - `alg`: A CBOR array containing the value of the `alg` member of each
+          item in `pubKeyCredParams`.
+
+        - `up`: A CBOR integer with the value `4`.
+
+        - `uv`: The CBOR representation of `arkgGenerateSeed.userVerification`
+          as defined by the `AuthenticationExtensionsSignOptionRequirement`
+          enum.
+
+        - `be`: The CBOR representation of `arkgGenerateSeed.backupEligible` as
+          defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
+
+ 1. If `arkgSign` is present:
+
+    1. If the current ceremony is not an authentication ceremony, return a
+       DOMException whose name is "NotSupportedError".
+
+    1. When selecting the authenticator to use for the ceremony, attempt to
+       select one that supports the `sign` extension with ARKG.
+
+    1. Set `extInput.arkgSign` to a CBOR map with the entries:
+
+        - `tbs`: The value `arkgSign.tbs` encoded as a CBOR byte string.
+        - `kh`: A CBOR map mapping the base64url decoding of each key of
+             `arkgSign.keyHandleByCredential` to its corresponding value.
+
+ 1. If `genKey` is present:
+
+    1. If the current ceremony is not a registration ceremony, return a
+       DOMException whose name is "NotSupportedError".
+
+    1. If `genKey.pubKeyCredParams` contains any item whose `alg`
+       member's value is not a fully specified COSEAlgorithmIdentifier, return a
+       DOMException whose name is "NotSupportedError"
+
+    1. If `genKey.userVerification` is `"forbidden"` or `"discouraged"` and
+       `authenticatorSelection.userVerification` is not `"discouraged"`, return
+       a DOMException whose name is "NotSupportedError".
+
+       If `genKey.userVerification` is `"preferred"` or `"discouraged"` and
+       `authenticatorSelection.userVerification` is not `"preferred"`, return a
+       DOMException whose name is "NotSupportedError".
+
+       If `genKey.userVerification` is `"required"` or `"discouraged"` and
+       `authenticatorSelection.userVerification` is not `"required"`, return a
+       DOMException whose name is "NotSupportedError".
+
+       If `genKey.userVerification` is `"forbidden"`, select an authenticator
+       that does not always require user verification. If this is not possible,
+       return a DOMException whose name is “NotAllowedError”.
+
+    1. If `genKey.backupEligible` is `"forbidden"`, select an authenticator that
+       can create credentials that are not backup eligible. Configure the
+       authenticator to create a credential that is not backup eligible. If this
+       is not possible, return a DOMException whose name is “NotAllowedError”.
+
+       If `genKey.backupEligible` is `"discouraged"`, attempt to select an
+       authenticator that can create credentials that are not backup eligible.
+       If possible, configure the authenticator to create a credential that is
+       not backup eligible.
+
+       If `genKey.backupEligible` is `"preferred"`, attempt to select an
+       authenticator that can create backup eligible credentials. If possible,
+       configure the authenticator to create a backup eligible credential.
+
+       If `genKey.backupEligible` is `"preferred"`, select an authenticator that
+       can create backup eligible credentials and configure the authenticator to
+       create a backup eligible credential. If this is not possible, return a
+       DOMException whose name is “NotAllowedError”.
+
+    1. Set `extInput.genKey` to a CBOR map with the entries:
+
+        - `alg`: A CBOR array containing the value of the `alg` member of each
+          item in `pubKeyCredParams`.
+
+        - `up`: A CBOR integer with the value `4`.
+
+        - `uv`: The CBOR representation of `genKey.userVerification` as defined
+          by the `AuthenticationExtensionsSignOptionRequirement` enum.
+
+        - `be`: The CBOR representation of `genKey.backupEligible` as defined by
+          the `AuthenticationExtensionsSignOptionRequirement` enum.
+
+ 1. If `sign` is present:
+
+    1. If the current ceremony is not an authentication ceremony, return a
+       DOMException whose name is "NotSupportedError".
+
+    1. Set `extInput.sign` to a CBOR map with the entries:
+
+        - `tbs`: The value `sign.tbs` encoded as a CBOR byte string.
+        - `kh`: A CBOR map mapping the base64url decoding of each key of
+             `sign.keyHandleByCredential` to its corresponding value.
+
+ 1. Set the `sign` extension authenticator input to `extInput`.
 
 
 ### Client extension output
