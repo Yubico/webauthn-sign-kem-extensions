@@ -190,7 +190,7 @@ dictionary AuthenticationExtensionsSignGenerateKeyInputs {
     required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
 
     AuthenticationExtensionsSignKeyUsageRequirement userVerification = "discouraged";
-    AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "indifferent";
+    AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "any";
 }
 ```
 
@@ -219,7 +219,7 @@ dictionary AuthenticationExtensionsSignGenerateKeyInputs {
 enum AuthenticationExtensionsSignOptionRequirement {
     "forbidden",    // CBOR 0
     "discouraged",  // CBOR 1
-    "indifferent",  // CBOR 2
+    "any",          // CBOR 2
     "preferred",    // CBOR 3
     "required",     // CBOR 4
 }
@@ -235,9 +235,9 @@ or this key MUST NOT be backup eligible.
   The client SHOULD prefer using an authenticator that can satisfy this preference if possible,
   and SHOULD attempt to configure the authenticator to satisfy this preference if possible.
   If the preference cannot be satisfied,
-  the client MAY behave as if the preference was set to `indifferent`.
+  the client MAY behave as if the preference was set to `any`.
 
-- `indifferent`: The RP has no preference on whether user verification will be used with this key,
+- `any`: The RP has no preference on whether user verification will be used with this key,
   or whether the key is backup eligible.
   The client and authenticator MAY use any configuration of their choosing.
 
@@ -246,7 +246,7 @@ or this key MUST NOT be backup eligible.
   The client SHOULD prefer using an authenticator that can satisfy this preference if possible,
   and SHOULD attempt to configure the authenticator to satisfy this preference if possible.
   If the preference cannot be satisfied,
-  the client MAY behave as if the preference was set to `indifferent`.
+  the client MAY behave as if the preference was set to `any`.
 
 - `required`: User verification MUST be used with this key,
   or this key MUST be backup eligible.
@@ -255,7 +255,7 @@ or this key MUST NOT be backup eligible.
 
 The CBOR representation of an `AuthenticationExtensionsSignOptionRequirement` value
 is the index of that value, starting from zero,
-in the array `["forbidden", "discouraged", "indifferent", "preferred", "required"]`.
+in the array `["forbidden", "discouraged", "any", "preferred", "required"]`.
 
 
 ```
@@ -561,7 +561,7 @@ signExtensionGenerateKeyInputs = {
     alg: [+ COSEAlgorithmIdentifier],
     ? up: signExtensionOptionRequirement .default 4,  ; Default: "required"
     ? uv: signExtensionOptionRequirement .default 1,  ; Default: "discouraged"
-    ? be: signExtensionOptionRequirement .default 2,  ; Default: "indifferent"
+    ? be: signExtensionOptionRequirement .default 2,  ; Default: "any"
 }
 
 signExtensionArkgKeyHandle = {
