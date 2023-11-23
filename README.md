@@ -1,4 +1,4 @@
-# DRAFT: `sign` and `keyAgreement` WebAuthn extensions
+# DRAFT: `sign` and `kem` WebAuthn extensions
 
 _NOTE: This is a draft of a work in progress and **not implementation ready**.
 All parts of this draft are subject to change._
@@ -16,7 +16,7 @@ Closely related previous work:
 ## Introduction
 
 These extensions enable Relying Parties to sign arbitrary data
-and perform key agreement using public key protocols, such as Diffie-Hellman.
+and use key encapsulation mechanisms (KEM) using public key protocols.
 Both extensions also support the [Asynchronous Remote Key Generation (ARKG)][arkg] protocol,
 enabling public key generation to be delegated to a party without giving that party access to any corresponding private keys.
 
@@ -48,7 +48,7 @@ Finally, the Relying Party can request two operations from the authenticator:
   This gives the Relying Party access to a random oracle similar to the `prf` extension,
   but with the difference that a shared secret can be initially generated
   without access to the authenticator.
-  For example, this could be used for asymmetric encryption
+  For example, this can be used as a key encapsulation mechanism (KEM)
   where the authenticator needs to be present only during decryption.
 
 
@@ -61,7 +61,7 @@ Thus the RP can determine whether its requirements are satisfied
 by inspecting the attestation statement and the authenticator data flags.
 
 Each WebAuthn credential corresponds to at most one signing public key or signing seed public key,
-and at most one key agreement public key or key agreement seed public key.
+and at most one KEM public key or KEM seed public key.
 If a RP requires keys with varying user verification or backup eligibility properties,
 the RP must create a unique key - and thus a unique WebAuthn credential - for each such setting.
 These extensions do not require any state to be stored in the authenticator,
@@ -101,7 +101,7 @@ they do not support usage with an empty `allowCredentials`, for the following re
   and thus presumably must also first know which key is to be used for signing.
   Thus, the signing use case is largely incompatible with the anonymous authentication challenge use case.
 
-- The `keyAgreement` extension may be used to derive encryption keys,
+- The `kem` extension may be used to derive encryption keys,
   but in order to do so the RP needs to supply the key derivation parameters
   for the ciphertext in question.
 
@@ -109,14 +109,14 @@ they do not support usage with an empty `allowCredentials`, for the following re
   and immediately decrypt a ciphertext downloaded from the user's account.
   The RP does not know which ciphertext is to be decrypted before the user is identified,
   and thus cannot diversify the key derivation parameters by ciphertext or even by user.
-  The RP would have to use the same key agreement keypair for _all_ key agreements performed,
+  The RP would have to use the same KEM keypair for _all_ key derivations,
   and could not feasibly replace this key.
   The encryption could not be done on the client side,
-  since the RP's shared key agreement private key would enable any user to decrypt any other user's ciphertexts.
+  since the RP's shared KEM private key would enable any user to decrypt any other user's ciphertexts.
   Thus it would be better for that RP to use server-side access control instead.
 
 In conclusion: the RP almost certainly needs to identify the user
-before performing a signing or key agreement operation,
+before performing a signing or KEM operation,
 by the nature of these operations.
 Thus the restriction to non-empty `allowCredentials`
 is unlikely to impose any additional restriction in practice,
@@ -921,31 +921,52 @@ signExtensionOutputs = {
     as a public key for signing in the relevant user account.
 
 
-## WebAuthn `keyAgreement` extension
+## WebAuthn `kem` extension
 
 TODO: Spell out the whole extension once details are settled.
 
 Analogous to the `sign` extension,
-but outputting the result of a Diffie-Hellman exchange instead of a signature.
+but outputting the result of a Key Encapsulation Mechanism (KEM) -
+for example, a Diffie-Hellman exchange - instead of a signature.
 Inputs change like this:
 
 ```webidl
-dictionary AuthenticationExtensionsKeyAgreementInputs {
+dictionary AuthenticationExtensionsKemInputs {
     AuthenticationExtensionsSignGenerateKeyInputs generateKey;
-    AuthenticationExtensionsKeyAgreementDhInputs dh;
+    AuthenticationExtensionsKemDecapsulateInputs decapsulate;
 
     AuthenticationExtensionsSignGenerateKeyInputs arkgGenerateSeed;
-    KeyAgreementExtensioArkgEcdhInputs arkgEcdh;
+    AuthenticationExtensionsKemArkgDecapsulateInputs arkgDecapsulate;
 };
 
-dictionary AuthenticationExtensionsKeyAgreementDhInputs {
+dictionary AuthenticationExtensionsKemDecapsulateInputs {
     required BufferSource publicKey;
     record<USVString, BufferSource> keyHandleByCredential;
 }
 
-dictionary AuthenticationExtensionsKeyAgreementArkgEcdhInputs {
+dictionary AuthenticationExtensionsKemArkgDecapsulateInputs {
     required BufferSource publicKey;
     required record<USVString, AuthenticationExtensionsSignArkgKeyHandle> keyHandleByCredential;
+}
+```
+
+```cddl
+kemExtensionInputs = {
+    arkgGen: signExtensionGenerateKeyInputs,
+    ? arkgDec: kemExtensionArkgDecapsulateInputs,
+    //
+    genKey: signExtensionGenerateKeyInputs,
+    ? dec: kemExtensionDecapsulateInputs,
+};
+
+kemExtensionDecapsulateInputs = {
+    pk: bstr,
+    ? kh: { + bstr => bstr },
+}
+
+kemExtensionArkgDecapsulateInputs = {
+    pk: bstr;
+    kh: { + bstr => signExtensionArkgKeyHandle },
 }
 ```
 
@@ -953,10 +974,10 @@ and outputs like this:
 
 ```webidl
 partial dictionary AuthenticationExtensionsClientOutputs {
-    AuthenticationExtensionsKeyAgreementOutputs keyAgreement;
+    AuthenticationExtensionsKemOutputs kem;
 };
 
-dictionary AuthenticationExtensionsKeyAgreementOutputs {
+dictionary AuthenticationExtensionsKemOutputs {
     ArrayBuffer publicKey;
     ArrayBuffer keyHandle;
 
@@ -969,10 +990,10 @@ dictionary AuthenticationExtensionsKeyAgreementOutputs {
 
 ```cddl
 $$extensionOutput //= (
-    keyAgreement: keyAgreementExtensionOutputs,
+    kem: kemExtensionOutputs,
 )
 
-keyAgreementExtensionOutputs = {
+kemExtensionOutputs = {
     pk: bstr,
     kh: bstr,
     ? okm: bstr,
@@ -988,18 +1009,18 @@ keyAgreementExtensionOutputs = {
 },
 ```
 
-and the last step of the `dh` and `arkgEcdh` authenticator operations is:
+and the last step of the `dec` and `arkgDec` authenticator operations is:
 
  1. Set the extension output `okm` to the result of an ECDH exhange between `p` and `[dh | arkgEcdh].publicKey`.
 
     ISSUE: What is a suitable reference for a spec of an ECDH algorithm?
 
 and the HKDF `info` arguments used in _derive ARKG private key_
-are `webauthn.keyAgreement.arkg.cred_key` and `webauthn.keyAgreement.arkg.cred_key`.
+are `webauthn.kem.arkg.cred_key` and `webauthn.kem.arkg.cred_key`.
 
 
 RP operations are also the same,
-except the ARKG seed and generated public keys are key agreement keys instead of signing keys.
+except the ARKG seed and generated public keys are KEM keys instead of signing keys.
 
 
 [arkg]: https://doi.org/10.1145/3372297.3417292
