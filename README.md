@@ -269,7 +269,7 @@ or a new public key generated and returned along with the signature.
   to signing key handles to use for each credential.
   Only applicable during assertions when `allowCredentials` is not empty.
 
-  This input is OPTIONAL during registration ceremonies if the `genKey` input is also set,
+  This input is OPTIONAL during registration ceremonies if the `generateKey` input is also set,
   and REQUIRED during authentication ceremonies.
 
 ```
@@ -416,45 +416,45 @@ defined in the "Generate public key" section of "RP operations".
         - `kh`: A CBOR map mapping the base64url decoding of each key of
           `arkgSign.keyHandleByCredential` to its corresponding value.
 
- 1. If `genKey` is present:
+ 1. If `generateKey` is present:
 
     1. If the current ceremony is not a registration ceremony,
         return a DOMException whose name is "NotSupportedError".
 
-    1. If `genKey.pubKeyCredParams` contains any item
+    1. If `generateKey.pubKeyCredParams` contains any item
         whose `alg` member's value is not a fully specified COSEAlgorithmIdentifier,
         return a DOMException whose name is "NotSupportedError"
 
-    1. If `genKey.userVerification` is `"forbidden"` or `"discouraged"`
+    1. If `generateKey.userVerification` is `"forbidden"` or `"discouraged"`
         and `authenticatorSelection.userVerification` is not `"discouraged"`,
         return a DOMException whose name is "NotSupportedError".
 
-       If `genKey.userVerification` is `"preferred"` or `"discouraged"`
+       If `generateKey.userVerification` is `"preferred"` or `"discouraged"`
        and `authenticatorSelection.userVerification` is not `"preferred"`,
        return a DOMException whose name is "NotSupportedError".
 
-       If `genKey.userVerification` is `"required"` or `"discouraged"`
+       If `generateKey.userVerification` is `"required"` or `"discouraged"`
        and `authenticatorSelection.userVerification` is not `"required"`,
        return a DOMException whose name is "NotSupportedError".
 
-       If `genKey.userVerification` is `"forbidden"`,
+       If `generateKey.userVerification` is `"forbidden"`,
        select an authenticator that does not always require user verification.
        If this is not possible, return a DOMException whose name is "NotAllowedError".
 
-    1. If `genKey.backupEligible` is `"forbidden"`,
+    1. If `generateKey.backupEligible` is `"forbidden"`,
         select an authenticator that can create credentials that are not backup eligible.
         Configure the authenticator to create a credential that is not backup eligible.
         If this is not possible, return a DOMException whose name is "NotAllowedError".
 
-       If `genKey.backupEligible` is `"discouraged"`,
+       If `generateKey.backupEligible` is `"discouraged"`,
        attempt to select an authenticator that can create credentials that are not backup eligible.
        If possible, configure the authenticator to create a credential that is not backup eligible.
 
-       If `genKey.backupEligible` is `"preferred"`,
+       If `generateKey.backupEligible` is `"preferred"`,
        attempt to select an authenticator that can create backup eligible credentials.
        If possible, configure the authenticator to create a backup eligible credential.
 
-       If `genKey.backupEligible` is `"required"`,
+       If `generateKey.backupEligible` is `"required"`,
        select an authenticator that can create backup eligible credentials
        and configure the authenticator to create a backup eligible credential.
        If this is not possible, return a DOMException whose name is "NotAllowedError".
@@ -466,10 +466,10 @@ defined in the "Generate public key" section of "RP operations".
 
         - `up`: A CBOR integer with the value `4`.
 
-        - `uv`: The CBOR representation of `genKey.userVerification`
+        - `uv`: The CBOR representation of `generateKey.userVerification`
           as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
 
-        - `be`: The CBOR representation of `genKey.backupEligible`
+        - `be`: The CBOR representation of `generateKey.backupEligible`
           as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
 
  1. If `sign` is present:
