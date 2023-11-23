@@ -170,6 +170,11 @@ dictionary AuthenticationExtensionsSignInputs {
   Inputs for generating a signature using a private key derived using ARKG.
   Valid only during an authentication ceremony.
 
+  If both `arkgSign` and `sign` are present, `arkgSign` takes precedence.
+  If the authenticator supports ARKG and finds a valid signing key handle,
+  it will sign using the private key derived from the `arkgSign` inputs;
+  otherwise it will use the private key derived from the `sign` inputs.
+
 - `generateKey`
 
   Inputs for generating a signing public key.
