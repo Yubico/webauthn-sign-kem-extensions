@@ -454,7 +454,7 @@ public key" section of "RP operations".
        authenticator that can create backup eligible credentials. If possible,
        configure the authenticator to create a backup eligible credential.
 
-       If `genKey.backupEligible` is `"preferred"`, select an authenticator that
+       If `genKey.backupEligible` is `"required"`, select an authenticator that
        can create backup eligible credentials and configure the authenticator to
        create a backup eligible credential. If this is not possible, return a
        DOMException whose name is “NotAllowedError”.
