@@ -504,12 +504,18 @@ $$extensionInput //= (
 )
 
 signExtensionInputs = {
-    arkgGen: signExtensionGenerateKeyInputs,
-    ? arkgSign: signExtensionArkgSignInputs,
-    //
-    genKey: signExtensionGenerateKeyInputs,
-    ? sign: signExtensionSignInputs,
-};
+    (
+        arkgGen: signExtensionGenerateKeyInputs,
+        //
+        arkgSign: signExtensionArkgSignInputs,
+    ),
+    (
+        genKey: signExtensionGenerateKeyInputs,
+        ? sign: signExtensionSignInputs,
+        //
+        sign: signExtensionSignInputs,
+    ),
+}
 
 signExtensionSignInputs = {
     tbs: bstr,
@@ -808,19 +814,15 @@ $$extensionOutput //= (
 )
 
 signExtensionOutputs = {
-    spk: bstr,
+    spk: bstr,    ; arkgGen outputs
     sh: bstr,
-
     //
-
-    sig: bstr,
-
+    sig: bstr,    ; arkgSign or sign output
     //
-
-    pk: bstr,
+    pk: bstr,     ; genKey outputs
     kh: bstr,
     ? sig: bstr,
-},
+}
 ```
 
 - `spk`: The generated ARKG seed public key.
@@ -952,12 +954,18 @@ dictionary AuthenticationExtensionsKemArkgDecapsulateInputs {
 
 ```cddl
 kemExtensionInputs = {
-    arkgGen: signExtensionGenerateKeyInputs,
-    ? arkgDec: kemExtensionArkgDecapsulateInputs,
-    //
-    genKey: signExtensionGenerateKeyInputs,
-    ? dec: kemExtensionDecapsulateInputs,
-};
+    (
+        arkgGen: signExtensionGenerateKeyInputs,
+        //
+        arkgDec: kemExtensionArkgDecapsulateInputs,
+    ),
+    (
+        genKey: signExtensionGenerateKeyInputs,
+        ? dec: kemExtensionDecapsulateInputs,
+        //
+        dec: kemExtensionDecapsulateInputs,
+    ),
+}
 
 kemExtensionDecapsulateInputs = {
     pk: bstr,
@@ -994,19 +1002,15 @@ $$extensionOutput //= (
 )
 
 kemExtensionOutputs = {
-    pk: bstr,
+    spk: bstr,    ; arkgGen outputs
+    sh: bstr,
+    //
+    okm: bstr,    ; arkgDec or dec output
+    //
+    pk: bstr,     ; genKey outputs
     kh: bstr,
     ? okm: bstr,
-
-    //
-
-    spk: bstr,
-    sh: bstr,
-
-    //
-
-    okm: bstr,
-},
+}
 ```
 
 and the last step of the `dec` and `arkgDec` authenticator operations is:
