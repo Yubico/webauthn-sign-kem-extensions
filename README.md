@@ -189,7 +189,7 @@ dictionary AuthenticationExtensionsSignInputs {
 dictionary AuthenticationExtensionsSignGenerateKeyInputs {
     required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
 
-    AuthenticationExtensionsSignKeyUsageRequirement userVerification = "discouraged";
+    AuthenticationExtensionsSignKeyUsageRequirement userVerification = "preferred";
     AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "any";
 }
 ```
@@ -560,7 +560,7 @@ signExtensionOptionRequirement = 0..4
 signExtensionGenerateKeyInputs = {
     alg: [+ COSEAlgorithmIdentifier],
     ? up: signExtensionOptionRequirement .default 4,  ; Default: "required"
-    ? uv: signExtensionOptionRequirement .default 1,  ; Default: "discouraged"
+    ? uv: signExtensionOptionRequirement .default 3,  ; Default: "preferred"
     ? be: signExtensionOptionRequirement .default 2,  ; Default: "any"
 }
 
