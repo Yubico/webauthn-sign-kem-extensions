@@ -327,19 +327,43 @@ defined in the "Generate public key" section of "RP operations".
 
  1. If `arkgSign` is present:
 
+    1. If the current ceremony is not an authentication ceremony,
+        return a DOMException whose name is "NotSupportedError".
+
+    1. If `arkgSign.keyHandleByCredential` is not present or is empty,
+        then return a DOMException whose name is "NotSupportedError".
+
     1. If any key in `arkgSign.keyHandleByCredential` is the empty string,
         or is not a valid base64url encoding,
         or does not equal the id of some element of `allowCredentials`
         after performing base64url decoding,
         then return a DOMException whose name is "SyntaxError".
 
+ 1. If `generateKey` is present:
+
+    1. If the current ceremony is not a registration ceremony,
+        return a DOMException whose name is "NotSupportedError".
+
  1. If `sign` is present:
 
-    1. If any key in `sign.keyHandleByCredential` is the empty string,
-        or is not a valid base64url encoding,
-        or does not equal the id of some element of `allowCredentials`
-        after performing base64url decoding,
-        then return a DOMException whose name is "SyntaxError".
+    1. If the current ceremony is a registration ceremony:
+
+        1. If `generateKey` is not present,
+            then return a DOMException whose name is "NotSupportedError".
+
+        1. If `sign.keyHandleByCredential` is present,
+            then return a DOMException whose name is "NotSupportedError".
+
+    1. If the current ceremony is an authentication ceremony:
+
+        1. If `sign.keyHandleByCredential` is not present or is empty,
+            then return a DOMException whose name is "NotSupportedError".
+
+        1. If any key in `sign.keyHandleByCredential` is the empty string,
+            or is not a valid base64url encoding,
+            or does not equal the id of some element of `allowCredentials`
+            after performing base64url decoding,
+            then return a DOMException whose name is "SyntaxError".
 
  1. If `arkgGenerateSeed` is present:
 
@@ -403,9 +427,6 @@ defined in the "Generate public key" section of "RP operations".
           as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
 
  1. If `arkgSign` is present:
-
-    1. If the current ceremony is not an authentication ceremony,
-        return a DOMException whose name is "NotSupportedError".
 
     1. When selecting the authenticator to use for the ceremony,
         attempt to select one that supports the `sign` extension with ARKG.
@@ -474,14 +495,17 @@ defined in the "Generate public key" section of "RP operations".
 
  1. If `sign` is present:
 
-    1. If the current ceremony is not an authentication ceremony,
-        return a DOMException whose name is "NotSupportedError".
+    1. Let `extSignInput` be a new CBOR map.
 
-    1. Set `extInput.sign` to a CBOR map with the entries:
+    1. Set `extSignInput.tbs` to the value of `sign.tbs` encoded as a CBOR byte string.
 
-        - `tbs`: The value `sign.tbs` encoded as a CBOR byte string.
-        - `kh`: A CBOR map mapping the base64url decoding of each key of
-          `sign.keyHandleByCredential` to its corresponding value.
+    1. If `sign.keyHandleByCredential` is present:
+
+        1. Set `extSignInput.kh` to a CBOR map
+            mapping the base64url decoding of each key of `sign.keyHandleByCredential`
+            to its corresponding value.
+
+    1. Set `extInput.sign` to `extSignInput`.
 
  1. Set the `sign` extension authenticator input to `extInput`.
 
@@ -504,22 +528,26 @@ $$extensionInput //= (
 )
 
 signExtensionInputs = {
-    (
+    1*2 (
         arkgGen: signExtensionGenerateKeyInputs,
         //
-        arkgSign: signExtensionArkgSignInputs,
-    ),
-    (
         genKey: signExtensionGenerateKeyInputs,
-        ? sign: signExtensionSignInputs,
+        ? sign: signExtensionGenKeySignInputs,
+    ),
+    //
+    1*2 (
+        arkgSign: signExtensionArkgSignInputs,
         //
         sign: signExtensionSignInputs,
     ),
 }
 
+signExtensionGenKeySignInputs = {
+    tbs: bstr,
+}
 signExtensionSignInputs = {
     tbs: bstr,
-    ? kh: { + bstr => bstr },
+    kh: { + bstr => bstr },
 }
 
 signExtensionOptionRequirement = 0..4
@@ -754,8 +782,6 @@ signExtensionArkgSignInputs = {
 
 
  1. If `sign` is present:
-    1. If `arkgGen` or `arkgSign` is present, return CTAP2_ERR_X.
-
     1. If `genKey` is present:
 
         1. Let `keyHandle` be the value of the `sign.kh` extension output.
@@ -803,7 +829,6 @@ signExtensionArkgSignInputs = {
     1. Let `sig` be a signature over `tbs` using private key `p` and algorithm `alg`.
 
     1. Set the extension output `sign.sig` to `sig`. Return the extension output.
-
 
 
 ### Authenticator extension output
@@ -954,14 +979,15 @@ dictionary AuthenticationExtensionsKemArkgDecapsulateInputs {
 
 ```cddl
 kemExtensionInputs = {
-    (
+    1*2 (
         arkgGen: signExtensionGenerateKeyInputs,
         //
-        arkgDec: kemExtensionArkgDecapsulateInputs,
-    ),
-    (
         genKey: signExtensionGenerateKeyInputs,
         ? dec: kemExtensionDecapsulateInputs,
+    ),
+    //
+    1*2 (
+        arkgDec: kemExtensionArkgDecapsulateInputs,
         //
         dec: kemExtensionDecapsulateInputs,
     ),
