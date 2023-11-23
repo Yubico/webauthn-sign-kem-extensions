@@ -331,7 +331,7 @@ defined in the "Generate public key" section of "RP operations".
         or is not a valid base64url encoding,
         or does not equal the id of some element of `allowCredentials`
         after performing base64url decoding,
-        then return a DOMException whose name is “SyntaxError”.
+        then return a DOMException whose name is "SyntaxError".
 
  1. If `sign` is present:
 
@@ -339,7 +339,7 @@ defined in the "Generate public key" section of "RP operations".
         or is not a valid base64url encoding,
         or does not equal the id of some element of `allowCredentials`
         after performing base64url decoding,
-        then return a DOMException whose name is “SyntaxError”.
+        then return a DOMException whose name is "SyntaxError".
 
  1. If `arkgGenerateSeed` is present:
 
@@ -368,13 +368,13 @@ defined in the "Generate public key" section of "RP operations".
        If `arkgGenerateSeed.userVerification` is `"forbidden"`,
        select an authenticator that does not always require user verification.
        If this is not possible,
-       return a DOMException whose name is “NotAllowedError”.
+       return a DOMException whose name is "NotAllowedError".
 
     1. If `arkgGenerateSeed.backupEligible` is `"forbidden"`,
         select an authenticator that can create credentials that are not backup eligible.
        Configure the authenticator to create a credential that is not backup eligible.
        If this is not possible,
-       return a DOMException whose name is “NotAllowedError”.
+       return a DOMException whose name is "NotAllowedError".
 
        If `arkgGenerateSeed.backupEligible` is `"discouraged"`,
        attempt to select an authenticator that can create credentials that are not backup eligible.
@@ -387,7 +387,7 @@ defined in the "Generate public key" section of "RP operations".
        If `arkgGenerateSeed.backupEligible` is `"preferred"`, select an
        authenticator that can create backup eligible credentials and configure
        the authenticator to create a backup eligible credential. If this is not
-       possible, return a DOMException whose name is “NotAllowedError”.
+       possible, return a DOMException whose name is "NotAllowedError".
 
     1. Set `extInput.arkgGen` to a CBOR map with the entries:
 
@@ -439,12 +439,12 @@ defined in the "Generate public key" section of "RP operations".
 
        If `genKey.userVerification` is `"forbidden"`,
        select an authenticator that does not always require user verification.
-       If this is not possible, return a DOMException whose name is “NotAllowedError”.
+       If this is not possible, return a DOMException whose name is "NotAllowedError".
 
     1. If `genKey.backupEligible` is `"forbidden"`,
         select an authenticator that can create credentials that are not backup eligible.
         Configure the authenticator to create a credential that is not backup eligible.
-        If this is not possible, return a DOMException whose name is “NotAllowedError”.
+        If this is not possible, return a DOMException whose name is "NotAllowedError".
 
        If `genKey.backupEligible` is `"discouraged"`,
        attempt to select an authenticator that can create credentials that are not backup eligible.
@@ -457,7 +457,7 @@ defined in the "Generate public key" section of "RP operations".
        If `genKey.backupEligible` is `"required"`,
        select an authenticator that can create backup eligible credentials
        and configure the authenticator to create a backup eligible credential.
-       If this is not possible, return a DOMException whose name is “NotAllowedError”.
+       If this is not possible, return a DOMException whose name is "NotAllowedError".
 
     1. Set `extInput.genKey` to a CBOR map with the entries:
 
