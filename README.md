@@ -1013,6 +1013,8 @@ and the last step of the `dec` and `arkgDec` authenticator operations is:
 
  1. Set the extension output `okm` to the result of an ECDH exhange between `p` and `[dh | arkgEcdh].publicKey`.
 
+    ISSUE: Apply a KDF step to `okm` before returning from the authenticator?
+
     ISSUE: What is a suitable reference for a spec of an ECDH algorithm?
 
 and the HKDF `info` arguments used in _derive ARKG private key_
