@@ -612,11 +612,25 @@ signExtensionArkgSignInputs = {
 
         - If `arkgGen.up` is 0, let `up` be `false`.
         - If `arkgGen.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
-        - If `arkgGen.up` is 2, let `up` be `false` or `true` as chosen by the authenticator.
+        - If `arkgGen.up` is 2, let `up` equal the `UP` flag value to be returned in the authenticator data.
         - If `arkgGen.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
         - If `arkgGen.up` is 4, let `up` be `true`.
 
-        Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
+    1. Let `uv` be a Boolean value as follows.
+
+        - If `arkgGen.uv` is 0, let `uv` be `false`.
+        - If `arkgGen.uv` is 1, let `uv` be `true` if and only if this authenticator always requires user verification.
+        - If `arkgGen.uv` is 2, let `uv` equal the `UV` flag value to be returned in the authenticator data.
+        - If `arkgGen.uv` is 3, let `uv` be `true` if and only if this authenticator is capable of user verification.
+        - If `arkgGen.uv` is 4, let `uv` be `true`.
+
+    1. Let `be` be a Boolean value as follows.
+
+        - If `arkgGen.be` is 0, let `be` be `false`.
+        - If `arkgGen.be` is 1, let `be` be `true` if and only if this authenticator only creates backup eligible credentials.
+        - If `arkgGen.be` is 2, let `be` equal the `BE` flag value to be returned in the authenticator data.
+        - If `arkgGen.be` is 3, let `be` be `true` if and only if this authenticator is capable of creating backup eligible credentials.
+        - If `arkgGen.be` is 4, let `be` be `true`.
 
     1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
     1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
@@ -753,11 +767,25 @@ signExtensionArkgSignInputs = {
 
         - If `genKey.up` is 0, let `up` be `false`.
         - If `genKey.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
-        - If `genKey.up` is 2, let `up` be `false` or `true` as chosen by the authenticator.
+        - If `genKey.up` is 2, let `up` equal the `UP` flag value to be returned in the authenticator data.
         - If `genKey.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
         - If `genKey.up` is 4, let `up` be `true`.
 
-        Let `uv` and `be` be Boolean values determined in the same way. TODO: Formalize logic for UV and BE.
+    1. Let `uv` be a Boolean value as follows.
+
+        - If `genKey.uv` is 0, let `uv` be `false`.
+        - If `genKey.uv` is 1, let `uv` be `true` if and only if this authenticator always requires user verification.
+        - If `genKey.uv` is 2, let `uv` equal the `UV` flag value to be returned in the authenticator data.
+        - If `genKey.uv` is 3, let `uv` be `true` if and only if this authenticator is capable of user verification.
+        - If `genKey.uv` is 4, let `uv` be `true`.
+
+    1. Let `be` be a Boolean value as follows.
+
+        - If `genKey.be` is 0, let `be` be `false`.
+        - If `genKey.be` is 1, let `be` be `true` if and only if this authenticator only creates backup eligible credentials.
+        - If `genKey.be` is 2, let `be` equal the `BE` flag value to be returned in the authenticator data.
+        - If `genKey.be` is 3, let `be` be `true` if and only if this authenticator is capable of creating backup eligible credentials.
+        - If `genKey.be` is 4, let `be` be `true`.
 
     1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
     1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
