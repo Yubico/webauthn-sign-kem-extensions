@@ -144,7 +144,7 @@ The signing public key is not the same as the credential public key.
 ```webidl
 partial dictionary AuthenticationExtensionsClientInputs {
     AuthenticationExtensionsSignInputs sign;
-};
+}
 
 dictionary AuthenticationExtensionsSignInputs {
     AuthenticationExtensionsSignGenerateKeyInputs arkgGenerateSeed;
@@ -152,7 +152,7 @@ dictionary AuthenticationExtensionsSignInputs {
 
     AuthenticationExtensionsSignGenerateKeyInputs generateKey;
     AuthenticationExtensionsSignSignInputs sign;
-};
+}
 ```
 
 - `arkgGenerateSeed`
@@ -493,7 +493,7 @@ The Boolean value `true` to indicate that the extension was acted upon.
 ```webidl
 partial dictionary AuthenticationExtensionsClientOutputs {
     boolean sign;
-};
+}
 ```
 
 ### Authenticator extension input
@@ -532,13 +532,13 @@ signExtensionGenerateKeyInputs = {
 }
 
 signExtensionArkgKeyHandle = {
-    sh: bstr;
-    epk: bstr;
-    mac: bstr;
+    sh: bstr,
+    epk: bstr,
+    mac: bstr,
 }
 
 signExtensionArkgSignInputs = {
-    tbs: bstr;
+    tbs: bstr,
     kh: { + bstr => signExtensionArkgKeyHandle },
 }
 ```
@@ -939,7 +939,7 @@ dictionary AuthenticationExtensionsKemInputs {
 
     AuthenticationExtensionsSignGenerateKeyInputs arkgGenerateSeed;
     AuthenticationExtensionsKemArkgDecapsulateInputs arkgDecapsulate;
-};
+}
 
 dictionary AuthenticationExtensionsKemDecapsulateInputs {
     required BufferSource publicKey;
@@ -973,7 +973,7 @@ kemExtensionDecapsulateInputs = {
 }
 
 kemExtensionArkgDecapsulateInputs = {
-    pk: bstr;
+    pk: bstr,
     kh: { + bstr => signExtensionArkgKeyHandle },
 }
 ```
@@ -983,7 +983,7 @@ and outputs like this:
 ```webidl
 partial dictionary AuthenticationExtensionsClientOutputs {
     AuthenticationExtensionsKemOutputs kem;
-};
+}
 
 dictionary AuthenticationExtensionsKemOutputs {
     ArrayBuffer publicKey;
@@ -993,7 +993,7 @@ dictionary AuthenticationExtensionsKemOutputs {
     ArrayBuffer seedHandle;
 
     ArrayBuffer okm;
-};
+}
 ```
 
 ```cddl
