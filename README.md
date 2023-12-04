@@ -191,6 +191,7 @@ dictionary AuthenticationExtensionsSignGenerateKeyInputs {
 
     AuthenticationExtensionsSignKeyUsageRequirement userVerification = "preferred";
     AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "any";
+    Number                                          numKeys = 1;
 }
 ```
 
@@ -787,8 +788,6 @@ signExtensionArkgSignInputs = {
         - If `genKey.be` is 3, let `be` be `true` if and only if this authenticator is capable of creating backup eligible credentials.
         - If `genKey.be` is 4, let `be` be `true`.
 
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
     1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
@@ -796,7 +795,9 @@ signExtensionArkgSignInputs = {
 
     1. Let `P_enc` be `P` encoded in COSE_Key format.
 
-    1. Let `keyHandle` be an authenticator-specific encoding of `alg`, `up`, `uv` and `be`,
+    1. Let `ikm` be some random input key material.
+
+    1. Let `keyHandle` be an authenticator-specific encoding of `ikm`, `alg`, `up`, `uv` and `be`,
         which the authenticator can later use to derive the same key pair `p, P`.
         The encoding SHOULD include integrity protection
         to ensure that a given `keyHandle` is valid for a particular authenticator.
@@ -815,18 +816,12 @@ signExtensionArkgSignInputs = {
 
 
  1. If `sign` is present:
-    1. If `genKey` is present:
+    1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
 
-        1. Let `keyHandle` be the value of the `sign.kh` extension output.
+    1. If `allowCredentials` is empty, return CTAP2_ERR_X.
 
-        Otherwise:
-
-        1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
-
-        1. If `allowCredentials` is empty, return CTAP2_ERR_X.
-
-        1. Let `credentialId` be the credential ID of the credential being used for this assertion.
-            Let `keyHandle` be `sign.kh[credentialId]`.
+    1. Let `credentialId` be the credential ID of the credential being used for this assertion.
+        Let `keyHandle` be `sign.kh[credentialId]`.
 
     1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
 
@@ -858,6 +853,7 @@ signExtensionArkgSignInputs = {
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
         as the seeds to deterministically regenerate the signing key pair with private key `p` and public key `P`.
+       TODO: Extra entropy here to support multiple keys at a time?
 
     1. Let `sig` be a signature over `tbs` using private key `p` and algorithm `alg`.
 
@@ -877,9 +873,10 @@ signExtensionOutputs = {
     //
     sig: bstr,    ; arkgSign or sign output
     //
-    pk: bstr,     ; genKey outputs
-    kh: bstr,
-    ? sig: bstr,
+    keys: [       ; genKey outputs
+      pk: bstr,
+      kh: bstr,
+    ] ; TODO: Move array of keys to client extension outputs
 }
 ```
 
