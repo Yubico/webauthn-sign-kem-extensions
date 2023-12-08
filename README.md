@@ -417,9 +417,7 @@ signExtensionSignInputs = {
     kh: { + bstr => bstr },
 }
 
-signExtensionOptionRequirement = 0..4
-
-signExtensionGenerateKeyInputs = {
+kemExtensionGenerateKeyInputs = {
     ; TODO: FOR KEM EXTENSION ONLY
     alg: [+ COSEAlgorithmIdentifier],
 }
@@ -580,7 +578,7 @@ signExtensionArkgSignInputs = {
 
     1. TODO: KEM ONLY? Let `alg` be the authenticator's choice of one of the algorithms listed in `genKey.alg`.
 
-    1. TODO: KEM ONLY? If `alg` is not valid for signature operations, return CTAP2_ERR_X.
+    1. TODO: KEM ONLY? If `alg` is not valid for KEM operations, return CTAP2_ERR_X.
 
     1. TODO: COMPUTE `up`, `uv`, `be`
 
@@ -777,6 +775,8 @@ signExtensionOutputs = {
 ## WebAuthn `kem` extension
 
 TODO: Spell out the whole extension once details are settled.
+
+TODO: What about encryption export laws etc? Not new to YubiKey, but new to FIDO.
 
 Analogous to the `sign` extension,
 but outputting the result of a Key Encapsulation Mechanism (KEM) -
