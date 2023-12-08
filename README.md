@@ -191,6 +191,7 @@ dictionary AuthenticationExtensionsSignGenerateKeyInputs {
 
     AuthenticationExtensionsSignKeyUsageRequirement userVerification = "preferred";
     AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "any";
+    unsigned long                                   numKeys = 1;
 }
 ```
 
@@ -214,6 +215,8 @@ dictionary AuthenticationExtensionsSignGenerateKeyInputs {
 
   The client will negotiate with any available authenticators
   to choose one that can best satisfy this preference.
+
+- `numKeys`: The number of key pairs to generate.
 
 ```
 enum AuthenticationExtensionsSignOptionRequirement {
@@ -485,6 +488,28 @@ defined in the "Generate public key" section of "RP operations".
        and configure the authenticator to create a backup eligible credential.
        If this is not possible, return a DOMException whose name is "NotAllowedError".
 
+    1. Let `generatedKeys` be an empty list.
+
+    1. While `generatedKeys` has length less than `generateKey.numKeys`:
+        1. Let `ikm` be some random input key material.
+
+        1. Let `keyHandle` be an authenticator-specific encoding of `ikm`, `alg`, `up`, `uv` and `be`,
+            which the authenticator can later use to derive the same key pair `p, P`.
+            The encoding SHOULD include integrity protection
+            to ensure that a given `keyHandle` is valid for a particular authenticator.
+
+            One possible implementation is as follows:
+
+            1. Let `macKey` be a per-credential authenticator secret.
+
+            1. Let `keyHandleParams = [alg, up, uv, be]` as CBOR.
+
+            1. Let `keyHandle = HMAC-SHA-256(macKey, keyHandleParams || UTF8Encode("sign") || rpIdHash) || keyHandleParams`.
+
+        1. Append `{ pk: P_enc, kh: kh }` to `generatedKeys`.
+
+    1. Set the extension output `sign.pk` to `P_enc`. Set the extension output `sign.kh` to `keyHandle`.
+
     1. Set `extInput.genKey` to a CBOR map with the entries:
 
         - `alg`: A CBOR array containing the value of the `alg` member
@@ -514,16 +539,81 @@ defined in the "Generate public key" section of "RP operations".
 
  1. Set the `sign` extension authenticator input to `extInput`.
 
+ 1. TODO: Batch key generations with UP=0,UV=0; parse extension outputs
+
+    TODO: How to handle attestation when generated public keys are client outputs?
+
 
 ### Client extension output
 
-The Boolean value `true` to indicate that the extension was acted upon.
-
 ```webidl
 partial dictionary AuthenticationExtensionsClientOutputs {
-    boolean sign;
+    AuthenticationExtensionsSignOutputs sign;
 }
 ```
+
+```webidl
+dictionary AuthenticationExtensionsSignOutputs {
+    AuthenticationExtensionsSignArkgGenerateSeedOutputs      arkgGenerateSeed;
+    sequence<AuthenticationExtensionsSignGenerateKeyOutputs> generateKey;
+    ArrayBuffer                                              signature;
+}
+```
+
+- `arkgGenerateSeed`: The generated ARKG seed public key.
+  Present during registration ceremonies,
+  if and only if the `arkgGenerateSeed` input was present
+  and the authenticator supports ARKG.
+
+- `generateKey`: The generated public keys.
+  The length of this sequence equals the `generateKey.numKeys` extension input.
+  Present during registration ceremonies,
+  if and only if the `generateKey` input was present
+  and either the `arkgGenerateSeed` input was not present
+  or the authenticator does not support ARKG.
+
+- `signature`: The signature over the input data.
+  Present only and always during authentication ceremonies.
+
+```webidl
+dictionary AuthenticationExtensionsSignArkgGenerateSeedOutputs {
+    required ArrayBuffer seedPublicKey;
+    required ArrayBuffer seedHandle;
+}
+```
+
+- `seedPublicKey`: The generated ARKG seed public key.
+
+- `seedHandle`: The seed handle for the ARKG seed key pair.
+
+
+```webidl
+dictionary AuthenticationExtensionsSignGenerateKeyOutputs {
+    required ArrayBuffer publicKey;
+    required ArrayBuffer keyHandle;
+    ArrayBuffer          attestationObject;
+    ArrayBuffer          clientDataJSON;
+    ArrayBuffer          signature;
+}
+```
+
+- `publicKey`: The generated public key, in COSE_Key format.
+  This field is meant for easy access for RPs that do not need attestation;
+  RPs that need attestation need to parse the public key from the `attestationObject` property.
+
+- `keyHandle`: The key handle of the generated key pair.
+
+- `attestationObject`: An attestation object
+  whose attested credential data contains the same public key as `publicKey`.
+  Present only if attestation was requested.
+
+- `clientDataJSON`: The [JSON-compatible serialization of client data]
+  used to create the `attestationObject`.
+  Present if and only if the `attestationObject` property is present.
+
+- `signature`: The signature over the input data.
+  Present if and only if the `sign` input was present.
+
 
 ### Authenticator extension input
 
@@ -787,8 +877,6 @@ signExtensionArkgSignInputs = {
         - If `genKey.be` is 3, let `be` be `true` if and only if this authenticator is capable of creating backup eligible credentials.
         - If `genKey.be` is 4, let `be` be `true`.
 
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
     1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
@@ -796,7 +884,9 @@ signExtensionArkgSignInputs = {
 
     1. Let `P_enc` be `P` encoded in COSE_Key format.
 
-    1. Let `keyHandle` be an authenticator-specific encoding of `alg`, `up`, `uv` and `be`,
+    1. Let `ikm` be some random input key material.
+
+    1. Let `keyHandle` be an authenticator-specific encoding of `ikm`, `alg`, `up`, `uv` and `be`,
         which the authenticator can later use to derive the same key pair `p, P`.
         The encoding SHOULD include integrity protection
         to ensure that a given `keyHandle` is valid for a particular authenticator.
@@ -815,18 +905,12 @@ signExtensionArkgSignInputs = {
 
 
  1. If `sign` is present:
-    1. If `genKey` is present:
+    1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
 
-        1. Let `keyHandle` be the value of the `sign.kh` extension output.
+    1. If `allowCredentials` is empty, return CTAP2_ERR_X.
 
-        Otherwise:
-
-        1. If the current operation is not an `authenticatorGetAssertion` operation, return CTAP2_ERR_X.
-
-        1. If `allowCredentials` is empty, return CTAP2_ERR_X.
-
-        1. Let `credentialId` be the credential ID of the credential being used for this assertion.
-            Let `keyHandle` be `sign.kh[credentialId]`.
+    1. Let `credentialId` be the credential ID of the credential being used for this assertion.
+        Let `keyHandle` be `sign.kh[credentialId]`.
 
     1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
 
@@ -858,6 +942,7 @@ signExtensionArkgSignInputs = {
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
         as the seeds to deterministically regenerate the signing key pair with private key `p` and public key `P`.
+       TODO: Extra entropy here to support multiple keys at a time?
 
     1. Let `sig` be a signature over `tbs` using private key `p` and algorithm `alg`.
 
@@ -872,14 +957,17 @@ $$extensionOutput //= (
 )
 
 signExtensionOutputs = {
-    spk: bstr,    ; arkgGen outputs
+    spk: bstr,    ;   arkgGen outputs
     sh: bstr,
     //
-    sig: bstr,    ; arkgSign or sign output
+    sig: bstr,      ; arkgSign or sign output
     //
-    pk: bstr,     ; genKey outputs
-    kh: bstr,
-    ? sig: bstr,
+    keys: [         ; genKey outputs
+      pk: bstr,
+      kh: bstr,
+    ] ; TODO: Move array of keys to client extension outputs
+    //
+    sigs: [+ bstr], ; sign output
 }
 ```
 
