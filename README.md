@@ -187,76 +187,16 @@ dictionary AuthenticationExtensionsSignInputs {
 
 ```
 dictionary AuthenticationExtensionsSignGenerateKeyInputs {
-    required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
-
-    AuthenticationExtensionsSignKeyUsageRequirement userVerification = "preferred";
-    AuthenticationExtensionsSignKeyUsageRequirement backupEligible   = "any";
+    // TODO: Keep some kind of alg for kem extension    required sequence<PublicKeyCredentialParameters> pubKeyCredParams;
+    // TODO: Use credProtect to define UV
+    // TODO: Note that unusable resident credentials might be created
 }
 ```
 
-- `pubKeyCredParams`: List of what signature algorithms the RP supports,
+- `pubKeyCredParams`: List of what KEY ENCAPSULATION algorithms the RP supports,
   ordered from most to least preferred.
   The authenticator chooses the most preferred algorithm it supports,
   and returns an error if it supports none of the listed algorithms.
-
-- `userVerification`: The RP's preference on whether user verification
-  is required for signatures made with this key.
-  This setting will be fixed for the lifetime of the key;
-  if some operations require user verification and some do not,
-  the RP must generate one key for each use.
-
-  The client will negotiate with any available authenticators
-  to choose one that can best satisfy this preference.
-
-- `backupEligible`: The RP's preference on whether the required key will be backup eligible.
-  If some operations require or allow a backup eligible key and some do not,
-  the RP must generate one key for each use.
-
-  The client will negotiate with any available authenticators
-  to choose one that can best satisfy this preference.
-
-```
-enum AuthenticationExtensionsSignOptionRequirement {
-    "forbidden",    // CBOR 0
-    "discouraged",  // CBOR 1
-    "any",          // CBOR 2
-    "preferred",    // CBOR 3
-    "required",     // CBOR 4
-}
-```
-
-- `forbidden`: User verification MUST NOT be used with this key,
-or this key MUST NOT be backup eligible.
-  If no authenticator can satisfy this requirement,
-  the client MUST return an error.
-
-- `discouraged`: The RP prefers that user verification SHOULD NOT be used with this key,
-  or this key SHOULD NOT be backup eligible.
-  The client SHOULD prefer using an authenticator that can satisfy this preference if possible,
-  and SHOULD attempt to configure the authenticator to satisfy this preference if possible.
-  If the preference cannot be satisfied,
-  the client MAY behave as if the preference was set to `any`.
-
-- `any`: The RP has no preference on whether user verification will be used with this key,
-  or whether the key is backup eligible.
-  The client and authenticator MAY use any configuration of their choosing.
-
-- `preferred`: The RP prefers that user verification SHOULD be used with this key,
-  or this key SHOULD be backup eligible.
-  The client SHOULD prefer using an authenticator that can satisfy this preference if possible,
-  and SHOULD attempt to configure the authenticator to satisfy this preference if possible.
-  If the preference cannot be satisfied,
-  the client MAY behave as if the preference was set to `any`.
-
-- `required`: User verification MUST be used with this key,
-  or this key MUST be backup eligible.
-  If no authenticator can satisfy this requirement,
-  the client MUST return an error.
-
-The CBOR representation of an `AuthenticationExtensionsSignOptionRequirement` value
-is the index of that value, starting from zero,
-in the array `["forbidden", "discouraged", "any", "preferred", "required"]`.
-
 
 ```
 dictionary AuthenticationExtensionsSignSignInputs {
@@ -378,58 +318,18 @@ defined in the "Generate public key" section of "RP operations".
     1. When selecting the authenticator to use for the ceremony,
         attempt to select one that supports the `sign` extension with ARKG.
 
-    1. If `arkgGenerateSeed.pubKeyCredParams` contains any item
+    1. (FOR KEM ONLY) If `arkgGenerateSeed.pubKeyCredParams` contains any item
         whose `alg` member's value is not a fully specified COSEAlgorithmIdentifier,
         return a DOMException whose name is "NotSupportedError"
-
-    1. If `arkgGenerateSeed.userVerification` is `"forbidden"` or `"discouraged"`
-        and `authenticatorSelection.userVerification` is not `"discouraged"`,
-        return a DOMException whose name is "NotSupportedError".
-
-       If `arkgGenerateSeed.userVerification` is `"preferred"` or `"discouraged"`
-       and `authenticatorSelection.userVerification` is not `"preferred"`,
-       return a DOMException whose name is "NotSupportedError".
-
-       If `arkgGenerateSeed.userVerification` is `"required"` or `"discouraged"`
-       and `authenticatorSelection.userVerification` is not `"required"`,
-       return a DOMException whose name is "NotSupportedError".
-
-       If `arkgGenerateSeed.userVerification` is `"forbidden"`,
-       select an authenticator that does not always require user verification.
-       If this is not possible,
-       return a DOMException whose name is "NotAllowedError".
-
-    1. If `arkgGenerateSeed.backupEligible` is `"forbidden"`,
-        select an authenticator that can create credentials that are not backup eligible.
-       Configure the authenticator to create a credential that is not backup eligible.
-       If this is not possible,
-       return a DOMException whose name is "NotAllowedError".
-
-       If `arkgGenerateSeed.backupEligible` is `"discouraged"`,
-       attempt to select an authenticator that can create credentials that are not backup eligible.
-       If possible, configure the authenticator to create a credential that is not backup eligible.
-
-       If `arkgGenerateSeed.backupEligible` is `"preferred"`,
-       attempt to select an authenticator that can create backup eligible credentials.
-       If possible, configure the authenticator to create a backup eligible credential.
-
-       If `arkgGenerateSeed.backupEligible` is `"preferred"`, select an
-       authenticator that can create backup eligible credentials and configure
-       the authenticator to create a backup eligible credential. If this is not
-       possible, return a DOMException whose name is "NotAllowedError".
 
     1. Set `extInput.arkgGen` to a CBOR map with the entries:
 
         - `alg`: A CBOR array containing the value of the `alg` member
           of each item in `pubKeyCredParams`.
 
-        - `up`: A CBOR integer with the value `4`.
+        - `up`: TODO: Encode sensible UP option
 
-        - `uv`: The CBOR representation of `arkgGenerateSeed.userVerification`
-          as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
-
-        - `be`: The CBOR representation of `arkgGenerateSeed.backupEligible`
-          as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
+        - `uv`: TODO: Encode `authenticatorSelection.userVerification` and/or credProtect
 
  1. If `arkgSign` is present:
 
@@ -447,56 +347,18 @@ defined in the "Generate public key" section of "RP operations".
     1. If the current ceremony is not a registration ceremony,
         return a DOMException whose name is "NotSupportedError".
 
-    1. If `generateKey.pubKeyCredParams` contains any item
+    1. (KEM ONLY) If `generateKey.pubKeyCredParams` contains any item
         whose `alg` member's value is not a fully specified COSEAlgorithmIdentifier,
         return a DOMException whose name is "NotSupportedError"
-
-    1. If `generateKey.userVerification` is `"forbidden"` or `"discouraged"`
-        and `authenticatorSelection.userVerification` is not `"discouraged"`,
-        return a DOMException whose name is "NotSupportedError".
-
-       If `generateKey.userVerification` is `"preferred"` or `"discouraged"`
-       and `authenticatorSelection.userVerification` is not `"preferred"`,
-       return a DOMException whose name is "NotSupportedError".
-
-       If `generateKey.userVerification` is `"required"` or `"discouraged"`
-       and `authenticatorSelection.userVerification` is not `"required"`,
-       return a DOMException whose name is "NotSupportedError".
-
-       If `generateKey.userVerification` is `"forbidden"`,
-       select an authenticator that does not always require user verification.
-       If this is not possible, return a DOMException whose name is "NotAllowedError".
-
-    1. If `generateKey.backupEligible` is `"forbidden"`,
-        select an authenticator that can create credentials that are not backup eligible.
-        Configure the authenticator to create a credential that is not backup eligible.
-        If this is not possible, return a DOMException whose name is "NotAllowedError".
-
-       If `generateKey.backupEligible` is `"discouraged"`,
-       attempt to select an authenticator that can create credentials that are not backup eligible.
-       If possible, configure the authenticator to create a credential that is not backup eligible.
-
-       If `generateKey.backupEligible` is `"preferred"`,
-       attempt to select an authenticator that can create backup eligible credentials.
-       If possible, configure the authenticator to create a backup eligible credential.
-
-       If `generateKey.backupEligible` is `"required"`,
-       select an authenticator that can create backup eligible credentials
-       and configure the authenticator to create a backup eligible credential.
-       If this is not possible, return a DOMException whose name is "NotAllowedError".
 
     1. Set `extInput.genKey` to a CBOR map with the entries:
 
         - `alg`: A CBOR array containing the value of the `alg` member
           of each item in `pubKeyCredParams`.
 
-        - `up`: A CBOR integer with the value `4`.
+        - `up`: TODO: Encode sensible UP option
 
-        - `uv`: The CBOR representation of `generateKey.userVerification`
-          as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
-
-        - `be`: The CBOR representation of `generateKey.backupEligible`
-          as defined by the `AuthenticationExtensionsSignOptionRequirement` enum.
+        - `uv`: TODO: Encode `authenticatorSelection.userVerification` and/or credProtect
 
  1. If `sign` is present:
 
@@ -558,10 +420,8 @@ signExtensionSignInputs = {
 signExtensionOptionRequirement = 0..4
 
 signExtensionGenerateKeyInputs = {
+    ; TODO: FOR KEM EXTENSION ONLY
     alg: [+ COSEAlgorithmIdentifier],
-    ? up: signExtensionOptionRequirement .default 4,  ; Default: "required"
-    ? uv: signExtensionOptionRequirement .default 3,  ; Default: "preferred"
-    ? be: signExtensionOptionRequirement .default 2,  ; Default: "any"
 }
 
 signExtensionArkgKeyHandle = {
@@ -588,7 +448,7 @@ signExtensionArkgSignInputs = {
     1. If the current operation is not an `authenticatorMakeCredential` operation,
         return CTAP2_ERR_X.
 
-    1. Let `alg` be the authenticator's choice of one of the algorithms listed in `arkgGen.alg`.
+    1. (TODO: FOR KEM EXTENSION ONLY) Let `alg` be the authenticator's choice of one of the algorithms listed in `arkgGen.alg`.
         `alg` MUST be a fully-specified COSEAlgorithmIdentifier with a single valid corresponding curve `crv`.
         Let `crv` be this curve.
         If none is supported, return CTAP2_ERR_X.
@@ -596,45 +456,12 @@ signExtensionArkgSignInputs = {
         ISSUE: Support non-EC algorithms too? ARKG can in principle work with any
         discrete logarithm problem, and post-quantum extensions also exist.
 
-    1. If `crv` is not valid for signature operations, return CTAP2_ERR_X.
+    1. TODO: APPLIES TO KEM ONLY? GENERALIZE THIS TO NON-EC ALGORITHMS?
+        If `crv` is not valid for signature operations, return CTAP2_ERR_X.
 
         Note: For example, COSE elliptic curve `4` (X25519) is valid for use with ECDH only.
 
-    1. Return CTAP2_ERR_X if any of the following is true:
-        - `arkgGen.up` is 0 and this authenticator always requires user presence.
-        - `arkgGen.up` is 5 and this authenticator is not capable of a test of user presence.
-        - `arkgGen.uv` is 0 and this authenticator always requires user verification.
-        - `arkgGen.uv` is 5 and this authenticator is not capable of user verification.
-        - `arkgGen.be` is 0 and this authenticator can only create backup eligible credentials.
-        - `arkgGen.be` is 5 and this authenticator is not capable of creating backup eligible credentials.
-
-    1. Let `up` be a Boolean value as follows.
-
-        - If `arkgGen.up` is 0, let `up` be `false`.
-        - If `arkgGen.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
-        - If `arkgGen.up` is 2, let `up` equal the `UP` flag value to be returned in the authenticator data.
-        - If `arkgGen.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
-        - If `arkgGen.up` is 4, let `up` be `true`.
-
-    1. Let `uv` be a Boolean value as follows.
-
-        - If `arkgGen.uv` is 0, let `uv` be `false`.
-        - If `arkgGen.uv` is 1, let `uv` be `true` if and only if this authenticator always requires user verification.
-        - If `arkgGen.uv` is 2, let `uv` equal the `UV` flag value to be returned in the authenticator data.
-        - If `arkgGen.uv` is 3, let `uv` be `true` if and only if this authenticator is capable of user verification.
-        - If `arkgGen.uv` is 4, let `uv` be `true`.
-
-    1. Let `be` be a Boolean value as follows.
-
-        - If `arkgGen.be` is 0, let `be` be `false`.
-        - If `arkgGen.be` is 1, let `be` be `true` if and only if this authenticator only creates backup eligible credentials.
-        - If `arkgGen.be` is 2, let `be` equal the `BE` flag value to be returned in the authenticator data.
-        - If `arkgGen.be` is 3, let `be` be `true` if and only if this authenticator is capable of creating backup eligible credentials.
-        - If `arkgGen.be` is 4, let `be` be `true`.
-
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: COMPUTE `up`, `uv`, `be`
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
         as the seeds to deterministically generate a new EC key pair `s, S` on the curve `crv`.
@@ -694,9 +521,9 @@ signExtensionArkgSignInputs = {
         Let `crvOL` be the byte length of the order of the `crv` group.
         Let `crvSL` be the byte length of the scalar field of `crv`.
 
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: NOT NEEDED? If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: NOT NEEDED WITH CREDPROTECT? If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: NOT NEEDED? If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
         as the seeds to deterministically regenerate the EC key pair `s, S` on the curve `crv`.
@@ -751,45 +578,11 @@ signExtensionArkgSignInputs = {
     1. If the current operation is not an `authenticatorMakeCredential` operation,
         return CTAP2_ERR_X.
 
-    1. Let `alg` be the authenticator's choice of one of the algorithms listed in `genKey.alg`.
+    1. TODO: KEM ONLY? Let `alg` be the authenticator's choice of one of the algorithms listed in `genKey.alg`.
 
-    1. If `alg` is not valid for signature operations, return CTAP2_ERR_X.
+    1. TODO: KEM ONLY? If `alg` is not valid for signature operations, return CTAP2_ERR_X.
 
-    1. Return CTAP2_ERR_X if any of the following is true:
-        - `genKey.up` is 0 and this authenticator always requires user presence.
-        - `genKey.up` is 5 and this authenticator is not capable of a test of user presence.
-        - `genKey.uv` is 0 and this authenticator always requires user verification.
-        - `genKey.uv` is 5 and this authenticator is not capable of user verification.
-        - `genKey.be` is 0 and this authenticator can only create backup eligible credentials.
-        - `genKey.be` is 5 and this authenticator is not capable of creating backup eligible credentials.
-
-    1. Let `up` be a Boolean value as follows.
-
-        - If `genKey.up` is 0, let `up` be `false`.
-        - If `genKey.up` is 1, let `up` be `true` if and only if this authenticator always requires user presence.
-        - If `genKey.up` is 2, let `up` equal the `UP` flag value to be returned in the authenticator data.
-        - If `genKey.up` is 3, let `up` be `true` if and only if this authenticator is capable of a test of user presence.
-        - If `genKey.up` is 4, let `up` be `true`.
-
-    1. Let `uv` be a Boolean value as follows.
-
-        - If `genKey.uv` is 0, let `uv` be `false`.
-        - If `genKey.uv` is 1, let `uv` be `true` if and only if this authenticator always requires user verification.
-        - If `genKey.uv` is 2, let `uv` equal the `UV` flag value to be returned in the authenticator data.
-        - If `genKey.uv` is 3, let `uv` be `true` if and only if this authenticator is capable of user verification.
-        - If `genKey.uv` is 4, let `uv` be `true`.
-
-    1. Let `be` be a Boolean value as follows.
-
-        - If `genKey.be` is 0, let `be` be `false`.
-        - If `genKey.be` is 1, let `be` be `true` if and only if this authenticator only creates backup eligible credentials.
-        - If `genKey.be` is 2, let `be` equal the `BE` flag value to be returned in the authenticator data.
-        - If `genKey.be` is 3, let `be` be `true` if and only if this authenticator is capable of creating backup eligible credentials.
-        - If `genKey.be` is 4, let `be` be `true`.
-
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: COMPUTE `up`, `uv`, `be`
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
         as the seeds to deterministically generate a new signing key pair with private key `p` and public key `P`.
@@ -852,9 +645,9 @@ signExtensionArkgSignInputs = {
 
         `alg` MUST be a fully-specified COSEAlgorithmIdentifier.
 
-    1. If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
-    1. If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: NOT NEEDED? If `up` does not equal the `UP` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: NOT NEEDED? If `uv` does not equal the `UV` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
+    1. TODO: NOT NEEDED? If `be` does not equal the `BE` flag value to be returned in the authenticator data, return CTAP2_ERR_X.
 
     1. Use `up`, `uv`, `be` and a per-credential authenticator secret
         as the seeds to deterministically regenerate the signing key pair with private key `p` and public key `P`.
