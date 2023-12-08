@@ -767,6 +767,39 @@ signExtensionOutputs = {
     //
     sigs: [+ bstr], ; sign output
 }
+
+
+
+attestationObject: {
+  fmt: tstr,
+  authData: [
+    rpIdHash,
+    flags,
+    signCount,
+    attestedCredData: {
+      parent credential
+    },
+    extensions: {
+      sign: {
+        keys: [         ; genKey outputs
+          pk: bstr,
+          kh: bstr,
+          att_sig: bstr,  ; signs over pk, kh, credProtect level, BE, BS, UP?
+                          ; (different signature construction than top-level attestation signature)
+                          ; same trust path (x5c/etc) as parent credential
+                          ; sign each individual key
+                          ; add getInfo to signal max number of keys at a time
+
+          sig?: bstr,     ; Probably delete this for signing extension?
+          okm?: bstr,
+        ] ; TODO: Move array of keys to client extension outputs
+      },
+    },
+  ],
+  attStmt: {
+    x5c,
+    sig,
+  }
 ```
 
 - `spk`: The generated ARKG seed public key.
