@@ -72,7 +72,7 @@ dictionary AuthenticationExtensionsSignInputs {
 
 - `generateKey`
 
-  Inputs for generating signing public keys, and optionally generating a signature with each key.
+  Inputs for generating signing public keys, and optionally generating a signature with each key pair.
   Valid only during a registration ceremony.
 
 - `sign`
@@ -82,29 +82,64 @@ dictionary AuthenticationExtensionsSignInputs {
 
 ```
 dictionary AuthenticationExtensionsSignGenerateKeyInputs {
+    required sequence<AuthenticationExtensionsSignGenerateKeyAlgorithmsEntry> algorithms;
     unsigned long numKeys = 1;
     BufferSource tbs;
 }
 ```
 
-- `numKeys`: The number of key pairs to generate.
+- `algorithms`: A list of signature algorithm options to choose from,
+  ordered from most preferred to least preferred.
+  The client and authenticator make a best-effort to choose the most preferred algorithm possible.
+  If none of the listed algorithms is available, the operation fails.
+
+  This member MUST NOT be empty.
 
 - `tbs`: Optional data to be signed.
-  If present, it will be signed by each generated key.
+  If present, it will be signed by each generated key pair.
+
+```
+dictionary AuthenticationExtensionsSignGenerateKeyAlgorithmsEntry {
+    required COSEAlgorithmIdentifier alg;
+    unsigned long numKeys = 1;
+}
+```
+
+- `alg`: The cryptographic signature algorithm with which the newly generated credential will be used,
+  and thus also the type of key pair to be generated.
+
+- `numKeys`: The number of key pairs to generate if this algorithm is chosen.
 
 ```
 dictionary AuthenticationExtensionsSignSignInputs {
     required BufferSource tbs;
-    required record<USVString, BufferSource> keyHandleByCredential;
+    required record<USVString, AuthenticationExtensionsSignKeyHandle> keyHandleByCredential;
 }
 ```
 
-Inputs for generating a signature with a previously generated public key.
+Inputs for generating a signature with a previously generated key pair.
 
 - `tbs`: The data to be signed. Its format may depend on the signature algorithm.
 
 - `keyHandleByCredential`: A record mapping base64url encoded credential IDs
   to signing key handles to use for each credential.
+
+```
+dictionary AuthenticationExtensionsSignKeyHandle {
+    required BufferSource kid;
+    BufferSource args;
+}
+```
+
+TODO: Generalize this as a new COSE/JOSE data type (e.g., `COSEKeyReference`)?
+
+A reference to a previously generated key pair, with optional additional arguments to use during signing.
+
+- `kid`: An opaque byte string referencing a previously generated key pair.
+    This is returned as the `kid` member of the `generatedKeys` client extension output when the key pair was generated.
+
+- `args`: Optional, algorithm-specific additional arguments to use during signing.
+    The internal format is specified by the signature algorithm.
 
 
 ### Client extension processing
@@ -118,6 +153,14 @@ Inputs for generating a signature with a previously generated public key.
         return a DOMException whose name is "NotSupportedError".
 
     1. Set the `sign` authenticator extension input to a CBOR map with the entries:
+        - `alg`: A CBOR array containing the value of the `alg` member of each item of `generateKey.algorithms`, in order.
+        - `num`: A CBOR map constructed as follows:
+
+            Let `num` be a new CBOR map.
+            For each item of `generateKey.algorithms`:
+
+              If `numKeys` is not 1, set `num[alg]` to `numKeys`.
+
         - `tbs`: `generateKey.tbs` encoded as a CBOR byte string.
 
     1. After successfully _invoking the authenticatorMakeCredential operation_,
@@ -127,19 +170,22 @@ Inputs for generating a signature with a previously generated public key.
 
         1. Using the _credentialCreationData_ constructed in the success branch of Step 21 of [[Create]]():
 
+            1. Let `chosenNumKeys` be the value of the `numKeys` member of the item of `generateKey.algorithms`
+                whose `alg` member equals `credentialCreationData.attestationObjectResult.authData.extensions.sign.pk.alg`.
+
             1. Let `generatedCredential` be a new map with the entries:
 
                 - `attestationObject`: `credentialCreationData.attestationObjectResult`.
                 - `clientDataJSON`: `credentialCreationData.clientDataJSONResult`.
                 - `publicKey`: The value of `credentialCreationData.attestationObjectResult.authData.extensions.sign.pk`.
-                - `kh`: The value of `credentialCreationData.attestationObjectResult.authData.extensions.sign.kh`.
-                - `sig`: The value of `credentialCreationData.attestationObjectResult.authData.extensions.sign.sig` if present, otherwise omitted.
+                - `kid`: The value of `credentialCreationData.attestationObjectResult.authData.extensions.sign.kid`.
+                - `signature`: The value of `credentialCreationData.attestationObjectResult.authData.extensions.sign.sig` if present, otherwise omitted.
 
                 Append `generatedCredential` to `generatedCredentials`.
 
-            1. While `generatedCredentials` has length less than `generateKey.numKeys`:
+            1. While `generatedCredentials` has length less than `chosenNumKeys`:
 
-                1. If `generateKey.numKeys` is unreasonably high as determined at the client's discretion, [=break=].
+                1. If `chosenNumKeys` is unreasonably high as determined at the client's discretion, [=break=].
 
                 1. _Invoke the authenticatorMakeCredential operation_ again
                     on the [=selected authenticator=] with the same inputs.
@@ -154,8 +200,8 @@ Inputs for generating a signature with a previously generated public key.
                     - `attestationObject`: `attestationObjectResult`.
                     - `clientDataJSON`: `credentialCreationData.clientDataJSONResult`.
                     - `publicKey`: The value of `attestationObjectResult.authData.extensions.sign.pk`.
-                    - `kh`: The value of `attestationObjectResult.authData.extensions.sign.kh`.
-                    - `sig`: The value of `attestationObjectResult.authData.extensions.sign.sig` if present, otherwise omitted.
+                    - `kid`: The value of `attestationObjectResult.authData.extensions.sign.kid`.
+                    - `signature`: The value of `attestationObjectResult.authData.extensions.sign.sig` if present, otherwise omitted.
 
                     Append `generatedCredential` to `generatedCredentials`.
 
@@ -177,13 +223,23 @@ Inputs for generating a signature with a previously generated public key.
         after performing base64url decoding,
         return a DOMException whose name is "SyntaxError".
 
-    1. Set the `sign` authenticator extension input to a CBOR map with the entries:
-        - `tbs`: `sign.tbs` encoded as a CBOR byte string.
-        - `kh`: a CBOR map mapping the base64url decoding of each key of `sign.keyHandleByCredential`
-          to its corresponding value.
+    1. Let `keyHandleKids` and `keyHandleArgs` be CBOR arrays constructed as follows:
 
-        NOTE: If/when batching `allowCredentials` values to fit authenticator message length limits,
-        the client MUST also reduce `kh` in the same way so it only includes keys (whose base64url encoding is) present in `allowCredentials`.
+        1. For each `credentialId` in `allowCredentials`:
+
+            1. Let `encodedCredentialId` be the base64url encoding of `credentialId`.
+            1. Let `keyHandle` be `sign.keyHandleByCredential[encodedCredentialId]`.
+            1. Append `keyHandle.kid`, encoded as a CBOR byte string, to `keyHandleKids`.
+            1. If `keyHandle.args` is present, append `keyHandle.args`, encoded as a CBOR byte string, to `keyHandleArgs`.
+                Otherwise, append a CBOR null value (major type 7, value 22) to `keyHandleArgs`.
+
+        NOTE: If the client divides `allowCredentials` into smaller batches to fit authenticator message length limits,
+        the client MUST also divide `keyHandleKids` and `keyHandleArgs` into batches of the same size and in the same order.
+
+    1. Set the `sign` authenticator extension input to a CBOR map with the entries:
+        - `kid`: `keyHandleKids`.
+        - `tbs`: `sign.tbs` encoded as a CBOR byte string.
+        - `args`: `keyHandleArgs`, if at least one element of `keyHandleArgs` is not null. Otherwise omit the `args` entry.
 
     1. After successfully _invoking the authenticatorGetAssertion operation_,
         set the `sign` client extension output to a new map with the entries:
@@ -219,12 +275,12 @@ dictionary AuthenticationExtensionsSignGenerateKeyOutputs {
     required ArrayBuffer clientDataJSON;
 
     required ArrayBuffer publicKey;
-    required ArrayBuffer keyHandle;
+    required ArrayBuffer kid;
     ArrayBuffer signature;
 }
 ```
 
-- `attestationObject`: An attestation object containing the generated key in the `sign` authenticator extension output.
+- `attestationObject`: An attestation object containing the generated public key in the `sign` authenticator extension output.
   Note that the user credential conveyed by this attestation object may not be the same
   as the credential conveying this client extension output.
 
@@ -233,7 +289,7 @@ dictionary AuthenticationExtensionsSignGenerateKeyOutputs {
 - `publicKey`: A copy of the `sign.pk` authenticator extension output in the authenticator data in `attestationObject`.
   This is provided for convenience for RPs that do not need attestation.
 
-- `keyHandle`: A copy of the `sign.kh` authenticator extension output in the authenticator data in `attestationObject`.
+- `kid`: A copy of the `sign.kid` authenticator extension output in the authenticator data in `attestationObject`.
   This is provided for convenience for RPs that do not need attestation.
 
 - `signature`: A copy of the `sign.sig` authenticator extension output in the authenticator data in `attestationObject`.
@@ -247,10 +303,15 @@ dictionary AuthenticationExtensionsSignGenerateKeyOutputs {
 ```cddl
 $$extensionInput //= (
   sign: {
-    ? tbs: bstr,             ; Registration (key generation) input
+    ; Registration (key generation) input
+    alg: [ + alg: int .within COSEAlgorithmIdentifier],
+    num: { * int .within COSEAlgorithmIdentifier => uint .ne 1 },
+    ? tbs: bstr,
     //
-    kh: { + bstr => bstr },  ; Authentication (signing) input
+    ; Authentication (signing) input
+    kid: [ + bstr ],
     tbs: bstr,
+    args: [ + bstr / null ],
   },
 )
 ```
@@ -268,42 +329,47 @@ $$extensionInput //= (
         as the seeds to deterministically generate a new signing key pair with private key `p` and public key `P`.
         `p, P` MUST use the same signature algorithm as the parent credential being created.
 
-    1. Let `keyHandle` be an authenticator-specific encoding of `UP`, `UV`, `BE` and `auxIkm`,
+    1. Let `kid` be an authenticator-specific encoding of `UP`, `UV`, `BE` and `auxIkm`,
         which the authenticator can later use to re-generate the same key pair `p, P`.
         The encoding SHOULD include integrity protection
-        to ensure that a given `keyHandle` is valid for a particular authenticator.
+        to ensure that a given `kid` is valid for a particular authenticator.
 
         One possible implementation is as follows:
 
         1. Let `macKey` be a per-credential authenticator secret.
 
-        1. Let `keyHandleParams = [UP, UV, BE, auxIkm]` as CBOR.
+        1. Let `kidParams = [UP, UV, BE, auxIkm]` as CBOR.
 
-        1. Let `keyHandle = HMAC-SHA-256(macKey, keyHandleParams || UTF8Encode("sign") || rpIdHash) || keyHandleParams`.
+        1. Let `kid = HMAC-SHA-256(macKey, kidParams || UTF8Encode("sign") || rpIdHash) || kidParams`.
 
     1. Let `P_enc` be `P` encoded in COSE_Key format.
 
-    1. Set the extension output `sign.pk` to `P_enc`. Set the extension output `sign.kh` to `keyHandle`.
+    1. Set the extension output `sign.pk` to `P_enc`. Set the extension output `sign.kid` to `kid`.
 
     1. If `tbs` is present, set the extension output `sign.sig` to the result of signing `tbs` using private key `p`.
         The output signature format is determined by the signature algorithm of `p`.
         Terminate these extension processing steps.
 
  1. If the current operation is an `authenticatorGetAssertion` operation:
-    1. If `tbs` is not present or `kh` is not present,
-        return CTAP2_ERR_X.
-
     1. If `allowCredentials` is empty, return CTAP2_ERR_X.
 
+    1. If `tbs` is not present or `kid` is not present,
+        or if the length of `kid` does not equal the length of `allowCredentials`,
+        return CTAP2_ERR_X.
+
+    1. If `args` is and the length of `args` does not equal the length of `allowCredentials`,
+        return CTAP2_ERR_X.
+
     1. Let `credentialId` be the credential ID of the credential being used for this assertion.
-        Let `keyHandle` be `sign.kh[credentialId]`.
+        Let `credentialIdIndex` be the index of `credentialId` in `allowCredentials`.
+        Let `kid` be `sign.kid[credentialIdIndex]`.
+        Let `args` be `sign.args[credentialIdIndex]` if `sign.args` is present, otherwise null.
 
-    1. If `keyHandle` is null or undefined, return CTAP2_ERR_X.
+    1. If `kid` is null or undefined, return CTAP2_ERR_X.
 
-    1. Decode the authenticator-specific encoding of `keyHandle` and re-generate the key pair `p, P`.
-       to extract the `createUP`, `createUV`, `createBE` and `auxIkm` values.
+    1. Decode the authenticator-specific encoding of `kid` and re-generate the key pair `p, P`.
 
-        This procedure SHOULD verify integrity to ensure that `keyHandle` was generated by this authenticator.
+        This procedure SHOULD verify integrity to ensure that `kid` was generated by this authenticator.
 
         One possible implementation,
         compatible with the example encoding described above for `authenticatorMakeCredential` opersions,
@@ -311,13 +377,13 @@ $$extensionInput //= (
 
         1. Let `macKey` be a per-credential authenticator secret.
 
-        1. Let `mac = LEFT(32, keyHandle)` and `keyHandleParams = DROP_LEFT(32, keyHandle)`.
+        1. Let `mac = LEFT(32, kid)` and `kidParams = DROP_LEFT(32, kid)`.
 
-        1. Verify that `mac == HMAC-SHA-256(macKey, keyHandleParams || UTF8Encode("sign") || rpIdHash)`.
-            If not, this `keyHandle` was generated by a different authenticator.
+        1. Verify that `mac == HMAC-SHA-256(macKey, kidParams || UTF8Encode("sign") || rpIdHash)`.
+            If not, this `kid` was generated by a different authenticator.
             Return CTAP2_ERR_X.
 
-        1. Parse `[createUP, createUV, createBE, auxIkm] = keyHandleParams` as CBOR.
+        1. Parse `[createUP, createUV, createBE, auxIkm] = kidParams` as CBOR.
 
         1. Return `(createUP, createUV, createBE, auxIkm)`.
 
@@ -329,7 +395,8 @@ $$extensionInput //= (
         as the seeds to deterministically generate a new signing key pair with private key `p` and public key `P`.
         `p, P` MUST use the same signature algorithm as the parent credential being asserted.
 
-    1. Set the extension output `sign.sig` to the result of signing `tbs` using private key `p`.
+    1. Set the extension output `sign.sig` to the result of signing `tbs` using private key `p`
+        and  optional additional arguments `args`.
         The output signature format is determined by the signature algorithm of `p`.
 
 
@@ -340,7 +407,7 @@ $$extensionOutput //= (
   sign: {
     ; Registration (key generation) outputs
     pk: bstr,     ; Generated signing public key
-    kh: bstr,     ; Key handle for public key
+    kid: bstr,    ; Opaque identifier for the key pair
     ? sig: bstr,  ; Signature over tbs input (if requested)
     //
     ; Authentication (signing) outputs
@@ -352,7 +419,7 @@ $$extensionOutput //= (
 - `pk`: The generated public key.
   Present only in `authenticatorMakeCredential` operations.
 
-- `kh`: The key handle of the generated public key.
+- `kid`: The key handle of the generated public key.
   Present only in `authenticatorMakeCredential` operations.
 
 - `sig`: A signature over the `sign` extension input `tbs`, verifiable with public key `pk`.
