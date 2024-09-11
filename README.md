@@ -27,7 +27,7 @@ TODO: Spell out the whole extension once details are settled.
 
 TODO: What about encryption export laws etc? Not new to YubiKey, but new to FIDO.
 
-Analogous to the `sign` extension,
+Mostly analogous to the `sign` extension,
 but outputting the result of a Key Encapsulation Mechanism (KEM) -
 for example, a Diffie-Hellman exchange - instead of a signature.
 
@@ -35,6 +35,8 @@ Instead of the input `tbs: BufferSource` there's an input `publicKey: COSEKey` w
 and instead of the output `signature: BufferSource` there's an output `okm: BufferSource` containing the decapsulation result.
 
 ISSUE: Apply a KDF step to `okm` before returning from the authenticator?
+
+ISSUE: KEM output may need to be wrapped somehow so it can be securely transported to the RP server if needed?
 
 
 [att-cred-data]: https://w3c.github.io/webauthn/#attested-credential-data
